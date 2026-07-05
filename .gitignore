@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Production build output
+dist/
+dist-ssr/
+build/
+
+# Vite and tool caches
+.vite/
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.codex-vite.*.log
+
+# Local agent/tool state
+.codex/
+.agents/
+codex/
+agents/
+
+# IDE/editor files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
