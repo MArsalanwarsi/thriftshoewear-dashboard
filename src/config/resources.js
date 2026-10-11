@@ -83,45 +83,93 @@ export const RESOURCE_CONFIG = {
       { name: "status", label: "Status", type: "select", options: optionList(productStatuses), defaultValue: "draft" },
       { name: "tags", label: "Tags", placeholder: "comma, separated", from: (item) => item.tags?.join(", ") || "" },
       { name: "imageUrl", label: "Primary image URL", type: "url", required: true, from: (item) => firstImage(item).url || "" },
-      { name: "sku", label: "Variant SKU", required: true, from: (item) => firstVariant(item).sku || "" },
-      { name: "size", label: "Size", from: (item) => firstVariant(item).size || "" },
-      { name: "color", label: "Color", from: (item) => firstVariant(item).color || "" },
-      { name: "price", label: "Price", type: "number", required: true, from: (item) => firstVariant(item).price || "" },
-      { name: "salePrice", label: "Sale price", type: "number", from: (item) => firstVariant(item).salePrice ?? "" },
-      { name: "stock", label: "Stock", type: "number", defaultValue: 1, from: (item) => firstVariant(item).stock ?? 1 },
+      {
+        name: "variants",
+        label: "Product Variants",
+        type: "variants",
+        from: (item) =>
+          item.variants?.length
+            ? item.variants.map((v) => ({
+                _id: v._id,
+                sku: v.sku || "",
+                size: v.size || "",
+                color: v.color || "",
+                condition: v.condition || item.condition || "good",
+                price: v.price ?? "",
+                salePrice: v.salePrice ?? "",
+                stock: v.stock ?? 1,
+                isActive: v.isActive !== false,
+              }))
+            : [
+                {
+                  sku: firstVariant(item).sku || "",
+                  size: firstVariant(item).size || "",
+                  color: firstVariant(item).color || "",
+                  condition: firstVariant(item).condition || item.condition || "good",
+                  price: firstVariant(item).price ?? "",
+                  salePrice: firstVariant(item).salePrice ?? "",
+                  stock: firstVariant(item).stock ?? 1,
+                  isActive: true,
+                },
+              ],
+        defaultValue: [
+          { sku: "", size: "", color: "", condition: "good", price: "", salePrice: "", stock: 1, isActive: true },
+        ],
+      },
       { name: "isFeatured", label: "Featured", type: "switch" },
       { name: "isNewArrival", label: "New arrival", type: "switch" },
       { name: "isBestSeller", label: "Best seller", type: "switch" },
     ],
-    buildPayload: (form) => ({
-      name: form.name,
-      slug: scalar(form.slug),
-      shortDescription: form.shortDescription,
-      description: form.description,
-      brand: form.brand || "Thrift Shoe Wear",
-      category: form.category,
-      productType: form.productType,
-      gender: form.gender || "none",
-      condition: form.condition,
-      status: form.status || "draft",
-      tags: splitCsv(form.tags),
-      images: [createImage(form.imageUrl, form.name)].filter(Boolean),
-      variants: [
-        {
-          sku: form.sku,
-          size: scalar(form.size),
-          color: scalar(form.color),
-          condition: form.condition,
-          price: numberValue(form.price),
-          salePrice: numberValue(form.salePrice) ?? null,
-          stock: numberValue(form.stock) ?? 1,
-          isActive: true,
-        },
-      ],
-      isFeatured: booleanValue(form.isFeatured),
-      isNewArrival: booleanValue(form.isNewArrival),
-      isBestSeller: booleanValue(form.isBestSeller),
-    }),
+    buildPayload: (form, mode, selected) => {
+      let variantsList = []
+      if (Array.isArray(form.variants) && form.variants.length > 0) {
+        variantsList = form.variants.map((v, index) => ({
+          ...(v._id ? { _id: v._id } : {}),
+          sku: (v.sku || `${form.sku || "TSW"}-${index + 1}`).trim().toUpperCase(),
+          size: scalar(v.size),
+          color: scalar(v.color),
+          condition: v.condition || form.condition || "good",
+          price: numberValue(v.price) ?? 0,
+          salePrice: numberValue(v.salePrice) ?? null,
+          stock: numberValue(v.stock) ?? 1,
+          isActive: v.isActive !== false,
+        }))
+      } else if (selected?.variants?.length) {
+        variantsList = selected.variants
+      } else {
+        variantsList = [
+          {
+            sku: (form.sku || "TSW-1").trim().toUpperCase(),
+            size: scalar(form.size),
+            color: scalar(form.color),
+            condition: form.condition || "good",
+            price: numberValue(form.price) ?? 0,
+            salePrice: numberValue(form.salePrice) ?? null,
+            stock: numberValue(form.stock) ?? 1,
+            isActive: true,
+          },
+        ]
+      }
+
+      return {
+        name: form.name,
+        slug: scalar(form.slug),
+        shortDescription: form.shortDescription,
+        description: form.description,
+        brand: form.brand || "Thrift Shoe Wear",
+        category: form.category,
+        productType: form.productType,
+        gender: form.gender || "none",
+        condition: form.condition,
+        status: form.status || "draft",
+        tags: splitCsv(form.tags),
+        images: [createImage(form.imageUrl, form.name)].filter(Boolean),
+        variants: variantsList,
+        isFeatured: booleanValue(form.isFeatured),
+        isNewArrival: booleanValue(form.isNewArrival),
+        isBestSeller: booleanValue(form.isBestSeller),
+      }
+    },
   },
   categories: {
     label: "Categories",
@@ -206,7 +254,7 @@ export const RESOURCE_CONFIG = {
         fields:
           status === "shipped"
             ? [
-                { name: "courierName", label: "Courier name", required: true },
+                { name: "courierName", label: "Courier name", type: "select", options: optionList(courierNames), defaultValue: "trax", required: true },
                 { name: "trackingNumber", label: "Tracking number", required: true },
                 { name: "trackingUrl", label: "Tracking URL", type: "url" },
               ]
@@ -352,6 +400,7 @@ export const RESOURCE_CONFIG = {
       { key: "order", label: "Order", value: (item) => item.order?.orderNumber || shortId(item.order) },
       { key: "method", label: "Method", value: (item) => item.method },
       { key: "amount", label: "Amount", value: (item) => formatCurrency(item.amount, item.currency) },
+      { key: "proof", label: "Receipt", value: (item) => (item.proofs?.length ? "Uploaded" : "None"), badge: true },
       { key: "status", label: "Status", value: (item) => item.status, badge: true },
       { key: "date", label: "Date", value: (item) => formatDate(item.createdAt) },
     ],
