@@ -7,18 +7,17 @@ import {
   Loader2,
   Plus,
   Save,
-  Star,
   Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { apiRequest } from "../lib/api"
 import { humanize } from "../lib/format"
+import { ImageGalleryUpload } from "../components/common/ImageGalleryUpload"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
 import { Label } from "../components/ui/label"
-import { Badge } from "../components/ui/badge"
 import { Switch } from "../components/ui/switch"
 import {
   Select,
@@ -112,15 +111,7 @@ export default function ProductFormPage() {
   })
 
   // Images state
-  const [images, setImages] = React.useState([
-    {
-      url: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800",
-      altText: "Primary Product Photo",
-      isPrimary: true,
-    },
-  ])
-  const [newImageUrl, setNewImageUrl] = React.useState("")
-  const [newImageAlt, setNewImageAlt] = React.useState("")
+  const [images, setImages] = React.useState([])
 
   // Variants state
   const [variants, setVariants] = React.useState([INITIAL_VARIANT])
@@ -271,43 +262,6 @@ export default function ProductFormPage() {
       return
     }
     setVariants((current) => current.filter((_, i) => i !== index))
-  }
-
-  // Image operations
-  const handleAddImage = (e) => {
-    e.preventDefault()
-    if (!newImageUrl.trim()) return
-
-    setImages((prev) => [
-      ...prev,
-      {
-        url: newImageUrl.trim(),
-        altText: newImageAlt.trim() || form.name || "Product image",
-        isPrimary: prev.length === 0,
-      },
-    ])
-    setNewImageUrl("")
-    setNewImageAlt("")
-  }
-
-  const setPrimaryImage = (index) => {
-    setImages((prev) =>
-      prev.map((img, i) => ({ ...img, isPrimary: i === index }))
-    )
-  }
-
-  const removeImage = (index) => {
-    if (images.length <= 1) {
-      toast.error("Product must keep at least one image")
-      return
-    }
-    setImages((prev) => {
-      const filtered = prev.filter((_, i) => i !== index)
-      if (!filtered.some((img) => img.isPrimary) && filtered.length > 0) {
-        filtered[0].isPrimary = true
-      }
-      return filtered
-    })
   }
 
   // Submit Handler
@@ -846,88 +800,16 @@ export default function ProductFormPage() {
             <CardHeader>
               <CardTitle className="text-base">Product Gallery</CardTitle>
               <CardDescription>
-                Provide high resolution photo URLs. At least one primary image is required.
+                Upload high resolution photos or select from existing media assets. Photos are compressed to WebP and hosted on Cloudflare R2.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Add New Image Input Form */}
-              <div className="flex flex-col gap-3 rounded-lg border border-border p-3.5 bg-muted/20 sm:flex-row sm:items-end">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Image URL *</Label>
-                  <Input
-                    type="url"
-                    className="h-9 text-xs"
-                    placeholder="https://example.com/shoes-angle-1.jpg"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                  />
-                </div>
-                <div className="w-full sm:w-[220px] space-y-1">
-                  <Label className="text-xs">Alt Text (Accessibility / SEO)</Label>
-                  <Input
-                    className="h-9 text-xs"
-                    placeholder="Sole condition & tread"
-                    value={newImageAlt}
-                    onChange={(e) => setNewImageAlt(e.target.value)}
-                  />
-                </div>
-                <Button type="button" size="sm" onClick={handleAddImage} className="h-9">
-                  <Plus className="mr-1 size-3.5" />
-                  Add Photo
-                </Button>
-              </div>
-
-              {/* Photos Grid */}
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {images.map((image, index) => (
-                  <div
-                    key={image._id || index}
-                    className={`group relative overflow-hidden rounded-lg border bg-background transition-all ${
-                      image.isPrimary
-                        ? "border-primary ring-2 ring-primary/20 shadow-sm"
-                        : "border-border hover:border-foreground/30"
-                    }`}
-                  >
-                    <div className="aspect-square w-full overflow-hidden bg-muted">
-                      <img
-                        src={image.url}
-                        alt={image.altText || "Product photo"}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    </div>
-                    {image.isPrimary && (
-                      <div className="absolute left-2 top-2">
-                        <Badge variant="default" className="text-[10px] shadow-sm">
-                          <Star className="mr-1 size-2.5 fill-current" />
-                          Primary
-                        </Badge>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between border-t p-2 bg-card text-xs">
-                      {!image.isPrimary ? (
-                        <button
-                          type="button"
-                          className="text-[11px] font-medium text-primary hover:underline cursor-pointer"
-                          onClick={() => setPrimaryImage(index)}
-                        >
-                          Set Primary
-                        </button>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-muted-foreground">Main</span>
-                      )}
-                      <button
-                        type="button"
-                        className="text-destructive hover:text-destructive/80 p-0.5 cursor-pointer"
-                        title="Delete Image"
-                        disabled={images.length <= 1}
-                        onClick={() => removeImage(index)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <CardContent>
+              <ImageGalleryUpload
+                images={images}
+                onChange={setImages}
+                folder="products"
+                maxFiles={12}
+              />
             </CardContent>
           </Card>
         </TabsContent>
