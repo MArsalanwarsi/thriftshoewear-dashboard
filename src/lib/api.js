@@ -30,6 +30,17 @@ export async function apiRequest(path, options = {}) {
   const payload = text ? JSON.parse(text) : {}
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("dashboardToken")
+      localStorage.removeItem("dashboardUser")
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login" &&
+        !path.startsWith("/auth/login")
+      ) {
+        window.location.href = "/login"
+      }
+    }
     throw new Error(payload.message || `Request failed with ${response.status}`)
   }
 
