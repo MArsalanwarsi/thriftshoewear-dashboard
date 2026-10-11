@@ -19,6 +19,9 @@ import {
   RotateCcw,
 } from "lucide-react"
 import { toast } from "sonner"
+import { useSelector } from "react-redux"
+import { apiRequest } from "../lib/api"
+import { ImageUpload } from "./common/ImageUpload"
 import { formatCurrency, formatDate } from "../lib/format"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
@@ -145,8 +148,11 @@ export function PaymentProofModal({
   onApprove,
   onReject,
   onVerifyOnly,
+  onProofUpdated,
   pending = false,
 }) {
+  const token = useSelector((state) => state.auth?.token)
+  const [attachingProof, setAttachingProof] = React.useState(false)
   // Zoom & transform state
   const [zoom, setZoom] = React.useState(100)
   const [rotation, setRotation] = React.useState(0)
@@ -357,12 +363,34 @@ export function PaymentProofModal({
                     />
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-center p-8 space-y-2 text-muted-foreground">
-                    <FileQuestion className="size-12 stroke-1" />
-                    <p className="text-sm font-medium">No Receipt Screenshot Uploaded</p>
-                    <p className="text-xs max-w-xs">
-                      Customer placed this order without uploading a payment receipt attachment.
-                    </p>
+                  <div className="flex flex-col items-center justify-center text-center p-6 space-y-3 text-muted-foreground w-full max-w-sm">
+                    <FileQuestion className="size-10 stroke-1 text-muted-foreground/70" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">No Receipt Screenshot Uploaded</p>
+                      <p className="text-xs">
+                        Customer placed this order without uploading a receipt. Attach the transfer screenshot below to persist it to Cloudflare R2.
+                      </p>
+                    </div>
+                    <div className="w-full text-left pt-1">
+                      <ImageUpload
+                        folder="payments"
+                        label="Attach Receipt"
+                        onChange={async (uploadedUrl) => {
+                          if (!uploadedUrl) return
+                          try {
+                            await apiRequest(`/payments/${payment._id}/proofs`, {
+                              method: "POST",
+                              token,
+                              body: { url: uploadedUrl },
+                            })
+                            toast.success("Payment receipt uploaded and attached successfully")
+                            onProofUpdated?.()
+                          } catch (err) {
+                            toast.error(err.message || "Failed to attach receipt")
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -377,7 +405,7 @@ export function PaymentProofModal({
                       onClick={() => setSelectedProofIndex(idx)}
                       className={`relative size-12 rounded border overflow-hidden shrink-0 transition-all ${
                         selectedProofIndex === idx
-                           ? "border-primary ring-2 ring-primary/30"
+                          ? "border-primary ring-2 ring-primary/30"
                           : "border-border opacity-60 hover:opacity-100"
                       }`}
                     >
@@ -388,6 +416,56 @@ export function PaymentProofModal({
                       />
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* Attach Additional Receipt Option */}
+              {proofs.length > 0 && (
+                <div className="pt-1">
+                  {!attachingProof ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs h-7.5"
+                      onClick={() => setAttachingProof(true)}
+                    >
+                      + Attach Additional Receipt
+                    </Button>
+                  ) : (
+                    <div className="p-3 border rounded-lg bg-muted/20 space-y-2 text-left">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold">Upload Additional Receipt</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[11px] px-1.5"
+                          onClick={() => setAttachingProof(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                      <ImageUpload
+                        folder="payments"
+                        onChange={async (uploadedUrl) => {
+                          if (!uploadedUrl) return
+                          try {
+                            await apiRequest(`/payments/${payment._id}/proofs`, {
+                              method: "POST",
+                              token,
+                              body: { url: uploadedUrl },
+                            })
+                            toast.success("Additional receipt attached successfully")
+                            setAttachingProof(false)
+                            onProofUpdated?.()
+                          } catch (err) {
+                            toast.error(err.message || "Failed to attach receipt")
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

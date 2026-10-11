@@ -16,8 +16,16 @@ build/
 # Environment files
 .env
 .env.*
+env
 !.env.example
 !.env.sample
+
+# Cloudflare credentials & secrets
+cloudflare api token.txt
+*cloudflare*
+*.token.txt
+*.pem
+*.key
 
 # Logs
 *.log

@@ -23,6 +23,7 @@ import { toast } from "sonner"
 
 import { apiRequest } from "../lib/api"
 import { humanize } from "../lib/format"
+import { ImageUpload } from "../components/common/ImageUpload"
 import {
   Table,
   TableBody,
@@ -886,25 +887,14 @@ export default function CategoriesPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="cat-image">Image / Icon URL</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="cat-image"
-                  placeholder="https://..."
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                />
-                {formData.imageUrl && (
-                  <div className="size-9 rounded border bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                    <img
-                      src={formData.imageUrl}
-                      alt="Preview"
-                      className="size-full object-cover"
-                      onError={(e) => { e.currentTarget.style.display = "none" }}
-                    />
-                  </div>
-                )}
-              </div>
+              <ImageUpload
+                value={formData.imageUrl}
+                onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+                folder="categories"
+                label="Category Icon / Photo"
+                helperText="Upload an image or choose from Media Gallery. Stored in Cloudflare R2."
+                aspectRatio="square"
+              />
             </div>
 
             <div className="space-y-1.5">

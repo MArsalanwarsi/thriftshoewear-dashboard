@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 
 import { fetchSettings, updateSettings } from "../store/adminSlice"
+import { ImageUpload } from "../components/common/ImageUpload"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import {
@@ -534,30 +535,18 @@ export default function SettingsPage() {
                     <Label className="font-semibold">Light Mode Logo</Label>
                     <Badge variant="outline">Default</Badge>
                   </div>
-                  <Input
+                  <ImageUpload
                     value={form.logoUrl}
-                    onChange={(e) => handleInputChange("logoUrl", e.target.value)}
-                    placeholder="https://.../logo.png"
+                    onChange={(url) => handleInputChange("logoUrl", url)}
+                    folder="site"
+                    aspectRatio="contain"
+                    helperText="Horizontal vector or high-res PNG"
                   />
                   <Input
                     value={form.logoAltText}
                     onChange={(e) => handleInputChange("logoAltText", e.target.value)}
                     placeholder="Alt text (e.g. Brand logo)"
                   />
-                  <div className="flex h-20 items-center justify-center rounded-md border border-dashed bg-muted/30 p-2">
-                    {form.logoUrl ? (
-                      <img
-                        src={form.logoUrl}
-                        alt="Logo preview"
-                        className="max-h-full max-w-full object-contain"
-                        onError={(e) => (e.target.style.display = "none")}
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <ImageIcon className="size-3" /> No image loaded
-                      </span>
-                    )}
-                  </div>
                 </div>
 
                 {/* Logo Dark */}
@@ -566,30 +555,18 @@ export default function SettingsPage() {
                     <Label className="font-semibold">Dark Mode Logo</Label>
                     <Badge variant="outline">Dark theme</Badge>
                   </div>
-                  <Input
+                  <ImageUpload
                     value={form.darkLogoUrl}
-                    onChange={(e) => handleInputChange("darkLogoUrl", e.target.value)}
-                    placeholder="https://.../dark-logo.png"
+                    onChange={(url) => handleInputChange("darkLogoUrl", url)}
+                    folder="site"
+                    aspectRatio="contain"
+                    helperText="Light-colored logo for dark backgrounds"
                   />
                   <Input
                     value={form.darkLogoAltText}
                     onChange={(e) => handleInputChange("darkLogoAltText", e.target.value)}
                     placeholder="Alt text (e.g. Dark brand logo)"
                   />
-                  <div className="flex h-20 items-center justify-center rounded-md border border-dashed bg-slate-950 p-2">
-                    {form.darkLogoUrl ? (
-                      <img
-                        src={form.darkLogoUrl}
-                        alt="Dark logo preview"
-                        className="max-h-full max-w-full object-contain"
-                        onError={(e) => (e.target.style.display = "none")}
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <ImageIcon className="size-3" /> No dark logo loaded
-                      </span>
-                    )}
-                  </div>
                 </div>
 
                 {/* Favicon */}
@@ -598,30 +575,18 @@ export default function SettingsPage() {
                     <Label className="font-semibold">Browser Favicon</Label>
                     <Badge variant="outline">32x32 px</Badge>
                   </div>
-                  <Input
+                  <ImageUpload
                     value={form.faviconUrl}
-                    onChange={(e) => handleInputChange("faviconUrl", e.target.value)}
-                    placeholder="https://.../favicon.ico"
+                    onChange={(url) => handleInputChange("faviconUrl", url)}
+                    folder="site"
+                    aspectRatio="square"
+                    helperText="Square 32x32 or 64x64 icon"
                   />
                   <Input
                     value={form.faviconAltText}
                     onChange={(e) => handleInputChange("faviconAltText", e.target.value)}
                     placeholder="Alt text (e.g. Store Icon)"
                   />
-                  <div className="flex h-20 items-center justify-center rounded-md border border-dashed bg-muted/30 p-2">
-                    {form.faviconUrl ? (
-                      <img
-                        src={form.faviconUrl}
-                        alt="Favicon preview"
-                        className="size-8 object-contain"
-                        onError={(e) => (e.target.style.display = "none")}
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Globe className="size-3" /> No favicon loaded
-                      </span>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -1170,12 +1135,13 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="ogImageUrl">Open Graph (Social Share) Image URL</Label>
-                  <Input
-                    id="ogImageUrl"
+                  <ImageUpload
                     value={form.ogImageUrl}
-                    onChange={(e) => handleInputChange("ogImageUrl", e.target.value)}
-                    placeholder="https://.../og-banner.jpg"
+                    onChange={(url) => handleInputChange("ogImageUrl", url)}
+                    folder="site"
+                    label="Open Graph (Social Share) Image"
+                    aspectRatio="video"
+                    helperText="1200x630 px for optimal Twitter & Facebook preview cards (stored on R2)"
                   />
                 </div>
 

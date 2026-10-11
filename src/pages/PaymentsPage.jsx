@@ -565,6 +565,10 @@ export default function PaymentsPage() {
         onApprove={handleApprove}
         onReject={handleReject}
         onVerifyOnly={handleVerifyOnly}
+        onProofUpdated={() => {
+          fetchPayments(true)
+          setInspectingPayment(null)
+        }}
         pending={actionPending}
       />
     </div>

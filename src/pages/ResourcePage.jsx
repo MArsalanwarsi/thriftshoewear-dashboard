@@ -22,6 +22,7 @@ import {
 } from "../store/adminSlice"
 import { RESOURCE_CONFIG, courierNames, getInitialFormValues } from "../config/resources"
 import { formatCurrency, formatDate, humanize, shortId } from "../lib/format"
+import { ImageUpload } from "../components/common/ImageUpload"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import {
@@ -289,6 +290,17 @@ function FieldControl({ field, value, onChange, categories = [] }) {
           ))}
         </SelectContent>
       </Select>
+    )
+  }
+
+  if (field.type === "image" || field.name === "imageUrl" || field.name === "image") {
+    return (
+      <ImageUpload
+        value={value || ""}
+        onChange={onChange}
+        folder="site"
+        label={field.label}
+      />
     )
   }
 
