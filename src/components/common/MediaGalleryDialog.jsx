@@ -45,9 +45,10 @@ import {
 const FOLDERS = [
   { id: "all", label: "All Folders" },
   { id: "products", label: "Products" },
+  { id: "profiles", label: "Avatars" },
+  { id: "payments", label: "Receipts" },
   { id: "categories", label: "Categories" },
   { id: "site", label: "Site Assets" },
-  { id: "payments", label: "Payments" },
 ]
 
 function formatBytes(bytes, decimals = 1) {

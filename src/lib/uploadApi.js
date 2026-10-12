@@ -324,6 +324,48 @@ export async function deleteMedia(keyOrUrl) {
   }
 }
 
+/**
+ * Retrieve live Cloudflare R2 storage metrics from backend
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.sync=false]
+ * @returns {Promise<{ success: boolean, data: Object }>}
+ */
+export async function fetchStorageStats({ sync = false } = {}) {
+  const token = getAuthToken()
+  const query = sync ? "?sync=true" : ""
+  const url = `${API_BASE_URL}/upload/storage-stats${query}`
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+
+  let data = {}
+  try {
+    data = await response.json()
+  } catch {
+    throw new Error(`Failed to parse storage statistics response (status ${response.status})`)
+  }
+
+  if (response.status === 401) {
+    handleAuthExpiry()
+    throw new Error("Authentication expired. Please log in again.")
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || `Failed to fetch storage statistics (status ${response.status})`)
+  }
+
+  return {
+    success: true,
+    data: data.data || data,
+  }
+}
+
 // Aliases for compatibility
 export const uploadSingleFile = uploadSingle
 export const uploadMultipleFiles = uploadMultiple
@@ -335,6 +377,7 @@ export default {
   uploadMultiple,
   fetchMedia,
   deleteMedia,
+  fetchStorageStats,
   uploadSingleFile,
   uploadMultipleFiles,
   fetchMediaLibrary,
