@@ -380,7 +380,7 @@ export class TestServer {
           const token = `token_${crypto.randomUUID().slice(0, 12)}`;
           this.sessions.set(token, user);
           const { passwordHash, ...safeUser } = user;
-          return this.sendJson(res, 200, { success: true, token, user: safeUser });
+          return this.sendJson(res, 200, { success: true, token, user: safeUser, data: { token, user: safeUser } });
         }
 
         // Auth: Register
@@ -415,7 +415,7 @@ export class TestServer {
           const token = `token_${crypto.randomUUID().slice(0, 12)}`;
           this.sessions.set(token, newUser);
           const { passwordHash, ...safeUser } = newUser;
-          return this.sendJson(res, 201, { success: true, token, user: safeUser });
+          return this.sendJson(res, 201, { success: true, token, user: safeUser, data: { token, user: safeUser } });
         }
 
         // Auth: Me
@@ -423,7 +423,7 @@ export class TestServer {
           const user = this.getUserFromAuth(req);
           if (!user) return this.sendJson(res, 401, { success: false, message: "Unauthorized" });
           const { passwordHash, ...safeUser } = user;
-          return this.sendJson(res, 200, { success: true, user: safeUser });
+          return this.sendJson(res, 200, { success: true, user: safeUser, data: { user: safeUser } });
         }
 
         // Auth: Forgot & Reset Password
@@ -466,6 +466,28 @@ export class TestServer {
                 { date: "2026-10-02", orders: 15, revenue: 2400 },
                 { date: "2026-10-03", orders: 18, revenue: 2880 },
               ],
+              storage: {
+                provider: "Cloudflare R2",
+                bucket: "thriftshoewear",
+                bucketName: "thriftshoewear",
+                totalBytes: 2516582,
+                fileCount: 42,
+                formattedSize: "2.4 MB",
+                formatted: "2.4 MB",
+                freeTierAllowance: "10 GB",
+                percentageUsed: 0.02,
+                formatBreakdown: {
+                  webp: { count: 35, bytes: 2200000, formattedSize: "2.1 MB" },
+                  png: { count: 7, bytes: 316582, formattedSize: "309.2 KB" },
+                },
+                breakdown: {
+                  webp: { count: 35, bytes: 2200000, formattedSize: "2.1 MB" },
+                  avatars: { count: 4, bytes: 150000, formattedSize: "146.5 KB" },
+                  receipts: { count: 3, bytes: 166582, formattedSize: "162.7 KB" },
+                },
+                status: "healthy",
+                health: "healthy",
+              },
             },
             counts: {
               products: this.products.size,
@@ -931,6 +953,116 @@ export class TestServer {
           };
           this.assets.set(asset._id, asset);
           return this.sendJson(res, 201, { success: true, data: { asset }, asset });
+        }
+
+        // Storage Stats
+        if (pathname === "/api/v1/upload/storage-stats" && method === "GET") {
+          return this.sendJson(res, 200, {
+            success: true,
+            message: "Storage statistics fetched successfully",
+            data: {
+              provider: "Cloudflare R2",
+              bucket: "thriftshoewear",
+              bucketName: "thriftshoewear",
+              totalBytes: 2516582,
+              fileCount: 42,
+              formattedSize: "2.4 MB",
+              formatted: "2.4 MB",
+              freeTierAllowance: "10 GB",
+              percentageUsed: 0.02,
+              formatBreakdown: {
+                webp: { count: 35, bytes: 2200000, formattedSize: "2.1 MB" },
+                png: { count: 7, bytes: 316582, formattedSize: "309.2 KB" },
+              },
+              breakdown: {
+                webp: { count: 35, bytes: 2200000, formattedSize: "2.1 MB" },
+                avatars: { count: 4, bytes: 150000, formattedSize: "146.5 KB" },
+                receipts: { count: 3, bytes: 166582, formattedSize: "162.7 KB" },
+              },
+              status: "healthy",
+              health: "healthy",
+            },
+          });
+        }
+
+        // Media Library Listing
+        if (pathname === "/api/v1/upload/media" && method === "GET") {
+          const sampleMedia = [
+            {
+              _id: "media_01",
+              key: "products/sample1.webp",
+              url: "https://pub-thriftshoewear.r2.dev/products/sample1.webp",
+              originalName: "sample1.webp",
+              size: 64200,
+              format: "webp",
+              createdAt: new Date().toISOString(),
+            },
+            {
+              _id: "media_02",
+              key: "profiles/user_avatar.webp",
+              url: "https://pub-thriftshoewear.r2.dev/profiles/user_avatar.webp",
+              originalName: "avatar.webp",
+              size: 32100,
+              format: "webp",
+              createdAt: new Date().toISOString(),
+            },
+            {
+              _id: "media_03",
+              key: "payments/bank_slip.webp",
+              url: "https://pub-thriftshoewear.r2.dev/payments/bank_slip.webp",
+              originalName: "receipt.webp",
+              size: 45000,
+              format: "webp",
+              createdAt: new Date().toISOString(),
+            },
+          ];
+          return this.sendJson(res, 200, {
+            success: true,
+            media: sampleMedia,
+            pagination: { page: 1, limit: 20, total: sampleMedia.length, pages: 1 },
+          });
+        }
+
+        // Single Image Upload
+        if (pathname === "/api/v1/upload/single" && method === "POST") {
+          return this.sendJson(res, 200, {
+            success: true,
+            url: "https://pub-thriftshoewear.r2.dev/products/mock-uploaded.webp",
+            key: "products/mock-uploaded.webp",
+            size: 45000,
+            format: "webp",
+            width: 800,
+            height: 800,
+            originalName: "mock-uploaded.webp",
+            mediaId: "media_mock_99",
+          });
+        }
+
+        // Multiple Images Upload
+        if (pathname === "/api/v1/upload/multiple" && method === "POST") {
+          return this.sendJson(res, 200, {
+            success: true,
+            files: [
+              {
+                url: "https://pub-thriftshoewear.r2.dev/products/mock-multi1.webp",
+                key: "products/mock-multi1.webp",
+                size: 45000,
+                format: "webp",
+                width: 800,
+                height: 800,
+                originalName: "mock-multi1.webp",
+                mediaId: "media_mock_multi_1",
+              },
+            ],
+          });
+        }
+
+        // Delete Media
+        if (pathname === "/api/v1/upload" && method === "DELETE") {
+          return this.sendJson(res, 200, {
+            success: true,
+            message: "Media deleted successfully",
+          });
         }
 
         // Default 404

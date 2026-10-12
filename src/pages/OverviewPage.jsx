@@ -19,6 +19,8 @@ import {
   Eye,
   CheckCircle2,
   AlertCircle,
+  Cloud,
+  Image as ImageIcon,
 } from "lucide-react"
 
 import { fetchDashboard } from "../store/adminSlice"
@@ -26,6 +28,7 @@ import { apiRequest } from "../lib/api"
 import { formatCurrency, formatDate } from "../lib/format"
 import StatusBadge from "../components/StatusBadge"
 import AnalyticsChart from "../components/analytics-chart"
+import { MediaGalleryDialog } from "../components/common/MediaGalleryDialog"
 
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
@@ -47,6 +50,20 @@ import {
   TableRow,
 } from "../components/ui/table"
 import { Skeleton } from "../components/ui/skeleton"
+
+function formatFallbackBytes(bytes) {
+  const num = Number(bytes) || 0
+  if (num <= 0) return "0 B"
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  let idx = Math.floor(Math.log(num) / Math.log(1024))
+  idx = Math.max(0, Math.min(idx, units.length - 1))
+  let val = num / Math.pow(1024, idx)
+  if (Number(val.toFixed(1)) >= 1024 && idx < units.length - 1) {
+    idx += 1
+    val = num / Math.pow(1024, idx)
+  }
+  return `${Number(val.toFixed(1))} ${units[idx]}`
+}
 
 /**
  * Defensive normalizer to handle both production backend ({ counts, revenue })
@@ -72,6 +89,98 @@ export function normalizeDashboardData(raw) {
   const popularProducts = Array.isArray(data.popularProducts) ? data.popularProducts : []
   const salesTrend = Array.isArray(data.salesTrend) ? data.salesTrend : []
 
+  // Cloudflare R2 storage metrics normalizer
+  const rawStorage = data.storage || {}
+  const totalBytes = Number(rawStorage.totalBytes ?? 0)
+  const fileCount = Number(rawStorage.fileCount ?? 0)
+  const provider = rawStorage.provider || "Cloudflare R2"
+  const bucket = rawStorage.bucket || rawStorage.bucketName || "thriftshoewear"
+  const freeTierAllowance = rawStorage.freeTierAllowance || "10 GB"
+  const parsedPercentage = Number(
+    rawStorage.percentageUsed ?? rawStorage.usedPercentage ?? 0
+  )
+  const percentageUsed = Number.isFinite(parsedPercentage) ? parsedPercentage : 0
+  const formattedSize =
+    rawStorage.formattedSize ||
+    rawStorage.formatted ||
+    formatFallbackBytes(totalBytes)
+  const formatBreakdown = rawStorage.formatBreakdown || {}
+  const folderBreakdown = rawStorage.folderBreakdown || {}
+  const rawBreakdown = rawStorage.breakdown || {}
+  const breakdown = {
+    webp: {
+      count: Number(
+        rawBreakdown.webp?.count ??
+          formatBreakdown.webp?.count ??
+          fileCount
+      ),
+      bytes: Number(
+        rawBreakdown.webp?.bytes ??
+          formatBreakdown.webp?.bytes ??
+          0
+      ),
+    },
+    avatars: {
+      count: Number(
+        rawBreakdown.avatars?.count ??
+          folderBreakdown.profiles?.count ??
+          folderBreakdown.avatars?.count ??
+          0
+      ),
+      bytes: Number(
+        rawBreakdown.avatars?.bytes ??
+          folderBreakdown.profiles?.bytes ??
+          folderBreakdown.avatars?.bytes ??
+          0
+      ),
+    },
+    receipts: {
+      count: Number(
+        rawBreakdown.receipts?.count ??
+          folderBreakdown.payments?.count ??
+          folderBreakdown.receipts?.count ??
+          0
+      ),
+      bytes: Number(
+        rawBreakdown.receipts?.bytes ??
+          folderBreakdown.payments?.bytes ??
+          folderBreakdown.receipts?.bytes ??
+          0
+      ),
+    },
+    products: {
+      count: Number(
+        rawBreakdown.products?.count ??
+          folderBreakdown.products?.count ??
+          0
+      ),
+      bytes: Number(
+        rawBreakdown.products?.bytes ??
+          folderBreakdown.products?.bytes ??
+          0
+      ),
+    },
+  }
+  const health =
+    rawStorage.health ||
+    rawStorage.status ||
+    (percentageUsed >= 100 ? "critical" : percentageUsed > 90 ? "warning" : "healthy")
+
+  const storage = {
+    provider,
+    bucket,
+    totalBytes,
+    fileCount,
+    formattedSize,
+    freeTierAllowance,
+    percentageUsed,
+    formatBreakdown,
+    folderBreakdown,
+    breakdown,
+    health,
+    s3Sync: rawStorage.s3Sync || null,
+  }
+
   return {
     products,
     activeProducts,
@@ -83,6 +192,7 @@ export function normalizeDashboardData(raw) {
     collectionRate,
     popularProducts,
     salesTrend,
+    storage,
   }
 }
 
@@ -94,6 +204,7 @@ export default function OverviewPage() {
   const [lastRefreshed, setLastRefreshed] = useState(() => new Date())
   const [recentOrders, setRecentOrders] = useState([])
   const [recentOrdersLoading, setRecentOrdersLoading] = useState(false)
+  const [galleryOpen, setGalleryOpen] = useState(false)
 
   // Fetch recent orders directly from REST API
   const fetchRecentOrders = useCallback(async () => {
@@ -144,9 +255,9 @@ export default function OverviewPage() {
           <span>Loading dashboard analytics...</span>
         </div>
 
-        {/* 6 KPI Skeletons */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {Array.from({ length: 6 }).map((_, i) => (
+        {/* 7 KPI Skeletons */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+          {Array.from({ length: 7 }).map((_, i) => (
             <Card key={i} className="@container/card">
               <CardHeader className="gap-2">
                 <Skeleton className="h-4 w-24" />
@@ -209,6 +320,7 @@ export default function OverviewPage() {
     amountDue,
     collectionRate,
     popularProducts,
+    storage,
   } = normalizeDashboardData(data)
 
   return (
@@ -301,12 +413,19 @@ export default function OverviewPage() {
                 <UserCheck className="mr-1.5 size-4" /> Staff Access
               </Link>
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGalleryOpen(true)}
+            >
+              <ImageIcon className="mr-1.5 size-4" /> Media Gallery
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* 6 Core KPI Metric Cards */}
-      <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {/* 7 Core KPI Metric Cards */}
+      <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         {/* KPI 1: Total Revenue */}
         <Card className="@container/card">
           <CardHeader>
@@ -430,6 +549,61 @@ export default function OverviewPage() {
           <CardFooter className="flex-col items-start gap-1 text-xs text-muted-foreground">
             <div>{formatCurrency(amountPaid)} collected</div>
             <div>Ratio of gross revenue</div>
+          </CardFooter>
+        </Card>
+
+        {/* KPI 7: Cloudflare R2 Cloud Storage */}
+        <Card className="@container/card">
+          <CardHeader>
+            <CardDescription className="line-clamp-1">Cloudflare R2 Storage</CardDescription>
+            <CardTitle className="text-2xl font-semibold tabular-nums @[220px]/card:text-3xl">
+              {storage.formattedSize}
+            </CardTitle>
+            <CardAction>
+              <Badge
+                variant={
+                  storage.health === "critical" || storage.percentageUsed >= 100
+                    ? "destructive"
+                    : storage.health === "warning" || storage.percentageUsed > 90
+                    ? "warning"
+                    : "success"
+                }
+                className="gap-1"
+              >
+                {storage.health === "critical" || storage.percentageUsed >= 100 ? (
+                  <AlertCircle className="size-3" />
+                ) : (
+                  <Cloud className="size-3" />
+                )}
+                {storage.health === "critical" || storage.percentageUsed >= 100
+                  ? "Exceeded"
+                  : storage.health === "warning" || storage.percentageUsed > 90
+                  ? "Attention"
+                  : "Optimal"}
+              </Badge>
+            </CardAction>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1 text-xs text-muted-foreground">
+            <div className="font-medium text-foreground">
+              {storage.formattedSize} / {storage.freeTierAllowance} ({storage.percentageUsed.toFixed(1)}%)
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+              <span>{storage.breakdown?.webp?.count ?? storage.fileCount} WebP</span>
+              <span>•</span>
+              <span>{storage.breakdown?.avatars?.count ?? 0} avatars</span>
+              <span>•</span>
+              <span>{storage.breakdown?.receipts?.count ?? 0} receipts</span>
+            </div>
+            <div className="flex w-full items-center justify-between pt-0.5">
+              <span>{storage.fileCount} total assets</span>
+              <button
+                type="button"
+                onClick={() => setGalleryOpen(true)}
+                className="text-primary hover:underline font-medium cursor-pointer"
+              >
+                Media Gallery →
+              </button>
+            </div>
           </CardFooter>
         </Card>
       </div>
@@ -652,6 +826,12 @@ export default function OverviewPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Media Gallery Dialog Modal */}
+      <MediaGalleryDialog
+        open={galleryOpen}
+        onOpenChange={setGalleryOpen}
+      />
     </div>
   )
 }

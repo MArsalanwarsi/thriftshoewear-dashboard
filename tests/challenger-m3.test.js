@@ -670,6 +670,8 @@ if (failedCount === 0) {
   console.log("- Polling & Lifecycle: 30s interval timer, unmount cleanup, and manual refresh verified");
   console.log("- Recharts & Tokens: SVG defs, gradient stop bindings, and OKLCH CSS tokens verified");
   console.log("----------------------------------------------------------------------\n");
+  await viteServer.close();
+  process.exit(0);
 } else {
   console.log("\n----------------------------------------------------------------------");
   console.log("CHALLENGER ASSESSMENT: FAIL");

@@ -25,11 +25,11 @@ export const loginUser = createAsyncThunk("auth/login", async (credentials) => {
     body: credentials,
   })
 
-  const user = response.data?.user
+  const user = response.data?.user || response.user
   assertAdmin(user)
 
   return {
-    token: response.data.token,
+    token: response.data?.token || response.token,
     user,
   }
 })
@@ -37,7 +37,7 @@ export const loginUser = createAsyncThunk("auth/login", async (credentials) => {
 export const fetchMe = createAsyncThunk("auth/me", async (_, { getState }) => {
   const token = getState().auth.token
   const response = await apiRequest("/auth/me", { token })
-  const user = response.data?.user
+  const user = response.data?.user || response.user
   assertAdmin(user)
   return user
 })
