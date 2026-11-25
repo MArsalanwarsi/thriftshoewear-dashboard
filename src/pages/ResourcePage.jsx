@@ -22,6 +22,7 @@ import {
 } from "../store/adminSlice"
 import { RESOURCE_CONFIG, courierNames, getInitialFormValues } from "../config/resources"
 import { formatCurrency, formatDate, humanize, shortId } from "../lib/format"
+import { sanitizeSafeUrl } from "../lib/url"
 import { ImageUpload } from "../components/common/ImageUpload"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -754,11 +755,11 @@ function OrderDetailsDialog({
               <span className="text-xs text-muted-foreground uppercase font-semibold">Courier Tracking: </span>
               <strong className="capitalize">{order.shipping.courierName}</strong> — <code>{order.shipping.trackingNumber}</code>
             </div>
-            {order.shipping.trackingUrl && (
+            {sanitizeSafeUrl(order.shipping.trackingUrl) && (
               <a
-                href={order.shipping.trackingUrl}
+                href={sanitizeSafeUrl(order.shipping.trackingUrl)}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="text-xs text-primary underline flex items-center gap-1"
               >
                 Track on Courier Site
@@ -917,17 +918,17 @@ function PaymentProofDialog({
           <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Customer Uploaded Receipt Screenshot
           </Label>
-          {proofUrl ? (
+          {sanitizeSafeUrl(proofUrl, { allowRelative: true }) ? (
             <div className="rounded-lg border border-border p-2 bg-muted/10 flex flex-col items-center">
               <img
-                src={proofUrl}
+                src={sanitizeSafeUrl(proofUrl, { allowRelative: true })}
                 alt="Payment receipt proof"
                 className="max-h-80 w-auto rounded object-contain border border-border shadow-xs"
               />
               <a
-                href={proofUrl}
+                href={sanitizeSafeUrl(proofUrl, { allowRelative: true })}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="mt-2 text-xs text-primary underline"
               >
                 Open original receipt image in new window

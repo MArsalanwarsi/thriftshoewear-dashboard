@@ -508,7 +508,7 @@ export default function UsersPage() {
 
                           <DropdownMenuSeparator />
 
-                          {isPending && (
+                          {isPending && isSuperAdmin && (
                             <>
                               <DropdownMenuItem
                                 onClick={() => setApproveUser(user)}

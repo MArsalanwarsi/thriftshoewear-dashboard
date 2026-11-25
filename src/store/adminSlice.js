@@ -1,17 +1,22 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
 import { apiRequest } from "../lib/api"
+import { encodeSegment } from "../lib/url"
 import { RESOURCE_CONFIG } from "../config/resources"
+import { fetchMe, logout } from "./authSlice"
 
-const resourceState = Object.keys(RESOURCE_CONFIG).reduce((state, key) => {
-  state[key] = {
-    items: [],
-    meta: null,
-    status: "idle",
-    error: null,
-    lastUpdated: null,
-  }
-  return state
-}, {})
+const buildInitialResourceState = () =>
+  Object.keys(RESOURCE_CONFIG).reduce((state, key) => {
+    state[key] = {
+      items: [],
+      meta: null,
+      status: "idle",
+      error: null,
+      lastUpdated: null,
+    }
+    return state
+  }, {})
+
+const resourceState = buildInitialResourceState()
 
 const tokenFromState = (getState) => getState().auth.token
 
@@ -58,7 +63,7 @@ export const updateRecord = createAsyncThunk(
   "admin/updateRecord",
   async ({ resource, id, body }, { getState }) => {
     const config = RESOURCE_CONFIG[resource]
-    const response = await apiRequest(`${config.endpoint}/${id}`, {
+    const response = await apiRequest(`${config.endpoint}/${encodeSegment(id)}`, {
       method: "PATCH",
       body,
       token: tokenFromState(getState),
@@ -72,7 +77,7 @@ export const deleteRecord = createAsyncThunk(
   "admin/deleteRecord",
   async ({ resource, id }, { getState }) => {
     const config = RESOURCE_CONFIG[resource]
-    await apiRequest(`${config.endpoint}/${id}`, {
+    await apiRequest(`${config.endpoint}/${encodeSegment(id)}`, {
       method: "DELETE",
       token: tokenFromState(getState),
     })
@@ -270,6 +275,18 @@ const adminSlice = createSlice({
         state.settings.error = action.error.message
         state.mutation.status = "failed"
         state.mutation.error = action.error.message
+      })
+      .addCase(logout, (state) => {
+        state.dashboard = { data: null, status: "idle", error: null }
+        state.settings = { data: null, status: "idle", error: null }
+        state.resources = buildInitialResourceState()
+        state.mutation = { status: "idle", error: null, message: null }
+      })
+      .addCase(fetchMe.rejected, (state) => {
+        state.dashboard = { data: null, status: "idle", error: null }
+        state.settings = { data: null, status: "idle", error: null }
+        state.resources = buildInitialResourceState()
+        state.mutation = { status: "idle", error: null, message: null }
       })
   },
 })

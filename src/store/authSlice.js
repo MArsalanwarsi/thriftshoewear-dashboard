@@ -62,7 +62,7 @@ export const forgotPassword = createAsyncThunk("auth/forgotPassword", async (pay
 export const resetPassword = createAsyncThunk(
   "auth/resetPassword",
   async ({ token, password }) => {
-    return apiRequest(`/auth/reset-password/${token}`, {
+    return apiRequest(`/auth/reset-password/${encodeURIComponent(String(token ?? "").trim())}`, {
       method: "PATCH",
       body: { password },
     })
@@ -70,7 +70,7 @@ export const resetPassword = createAsyncThunk(
 )
 
 export const verifyEmail = createAsyncThunk("auth/verifyEmail", async (token) => {
-  return apiRequest(`/auth/verify-email/${token}`)
+  return apiRequest(`/auth/verify-email/${encodeURIComponent(String(token ?? "").trim())}`)
 })
 
 const authSlice = createSlice({

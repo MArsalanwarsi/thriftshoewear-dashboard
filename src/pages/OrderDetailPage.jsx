@@ -21,6 +21,7 @@ import { toast } from "sonner"
 
 import { apiRequest } from "../lib/api"
 import { formatCurrency, formatDate, humanize } from "../lib/format"
+import { sanitizeSafeUrl } from "../lib/url"
 import {
   COURIER_OPTIONS,
   CANCELLATION_REASONS,
@@ -597,12 +598,12 @@ export default function OrderDetailPage() {
                   )}
                 </div>
 
-                {order.shipping.trackingUrl && (
+                {sanitizeSafeUrl(order.shipping.trackingUrl) && (
                   <div className="pt-2 border-t border-border/40">
                     <a
-                      href={order.shipping.trackingUrl}
+                      href={sanitizeSafeUrl(order.shipping.trackingUrl)}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="text-xs text-primary underline flex items-center gap-1 font-medium"
                     >
                       <ExternalLink className="size-3.5" />

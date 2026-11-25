@@ -27,7 +27,14 @@ export async function apiRequest(path, options = {}) {
   })
 
   const text = await response.text()
-  const payload = text ? JSON.parse(text) : {}
+  let payload = {}
+  if (text) {
+    try {
+      payload = JSON.parse(text)
+    } catch {
+      payload = { message: response.ok ? text : response.statusText || "Unexpected server response" }
+    }
+  }
 
   if (!response.ok) {
     if (response.status === 401) {

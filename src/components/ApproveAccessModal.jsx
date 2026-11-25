@@ -32,7 +32,7 @@ export function ApproveAccessModal({
 
   React.useEffect(() => {
     if (user) {
-      setRole(user.dashboardAccess?.requestedRole || "admin")
+      setRole("admin")
       setReviewNotes("")
     }
   }, [user])

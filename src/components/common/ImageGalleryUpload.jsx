@@ -28,6 +28,14 @@ import {
 import { MediaGalleryDialog } from "./MediaGalleryDialog"
 import { uploadMultiple, deleteMedia } from "@/lib/uploadApi"
 
+const ALLOWED_RASTER_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+])
+
 export function ImageGalleryUpload({
   images = [],
   onChange,
@@ -76,8 +84,8 @@ export function ImageGalleryUpload({
 
     // Validate mime
     for (const f of filesToUpload) {
-      if (!f.type.startsWith("image/")) {
-        return toast.error(`File "${f.name}" is not a recognized image type`)
+      if (!ALLOWED_RASTER_MIME.has(f.type)) {
+        return toast.error(`File "${f.name}" must be JPEG, PNG, WebP, AVIF, or GIF`)
       }
       if (f.size > 10 * 1024 * 1024) {
         return toast.error(`File "${f.name}" exceeds 10MB limit`)

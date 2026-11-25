@@ -23,6 +23,14 @@ import {
 import { MediaGalleryDialog } from "./MediaGalleryDialog"
 import { uploadSingle, deleteMedia } from "@/lib/uploadApi"
 
+const ALLOWED_RASTER_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+])
+
 export function ImageUpload({
   value = "",
   onChange,
@@ -49,8 +57,8 @@ export function ImageUpload({
   // Handle local file selection
   const handleFile = async (file) => {
     if (!file) return
-    if (!file.type.startsWith("image/")) {
-      return toast.error("Please select a valid image file (JPEG, PNG, WebP, AVIF)")
+    if (!ALLOWED_RASTER_MIME.has(file.type)) {
+      return toast.error("Please select a valid raster image file (JPEG, PNG, WebP, AVIF, GIF)")
     }
     if (file.size > 10 * 1024 * 1024) {
       return toast.error("Image file size must not exceed 10MB")

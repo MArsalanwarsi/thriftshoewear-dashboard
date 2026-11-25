@@ -13,6 +13,7 @@ import { toast } from "sonner"
 
 import { apiRequest } from "../lib/api"
 import { humanize } from "../lib/format"
+import { encodeSegment } from "../lib/url"
 import { ImageGalleryUpload } from "../components/common/ImageGalleryUpload"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -141,7 +142,7 @@ export default function ProductFormPage() {
     async function loadProduct() {
       setLoading(true)
       try {
-        const res = await apiRequest(`/products/${id}`, { token })
+        const res = await apiRequest(`/products/${encodeSegment(id)}`, { token })
         const product = res.data?.product || res.product
         if (!product) throw new Error("Product record not found")
 
@@ -340,7 +341,7 @@ export default function ProductFormPage() {
 
     try {
       if (isEditMode) {
-        await apiRequest(`/products/${id}`, {
+        await apiRequest(`/products/${encodeSegment(id)}`, {
           method: "PATCH",
           token,
           body: payload,

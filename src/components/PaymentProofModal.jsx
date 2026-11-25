@@ -23,6 +23,7 @@ import { useSelector } from "react-redux"
 import { apiRequest } from "../lib/api"
 import { ImageUpload } from "./common/ImageUpload"
 import { formatCurrency, formatDate } from "../lib/format"
+import { sanitizeSafeUrl } from "../lib/url"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import {
@@ -181,7 +182,8 @@ export function PaymentProofModal({
 
   const proofs = payment.proofs || []
   const currentProof = proofs[selectedProofIndex] || proofs[0]
-  const proofUrl = currentProof?.url
+  const rawProofUrl = currentProof?.url
+  const proofUrl = sanitizeSafeUrl(rawProofUrl, { allowRelative: true })
 
   const txId =
     payment.mobileWallet?.transactionId ||
@@ -336,7 +338,7 @@ export function PaymentProofModal({
                     <a
                       href={proofUrl}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="inline-flex size-7 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-foreground text-xs"
                       title="Open full image in new tab"
                     >

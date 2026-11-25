@@ -161,10 +161,29 @@ export function MediaGalleryDialog({
     onOpenChange?.(false)
   }
 
+const ALLOWED_RASTER_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+])
+
   // Handle File Upload directly inside gallery
   const handleUploadFiles = async (files) => {
     if (!files || files.length === 0) return
     const fileList = Array.from(files)
+    if (fileList.length > 10) {
+      return toast.error("Maximum 10 files can be uploaded per batch")
+    }
+    for (const f of fileList) {
+      if (!ALLOWED_RASTER_MIME.has(f.type)) {
+        return toast.error(`File "${f.name}" must be JPEG, PNG, WebP, AVIF, or GIF`)
+      }
+      if (f.size > 10 * 1024 * 1024) {
+        return toast.error(`File "${f.name}" exceeds 10MB limit`)
+      }
+    }
     setUploading(true)
     setUploadProgress(10)
 

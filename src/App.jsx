@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect } from "react"
 import { Navigate, Route, Routes } from "react-router-dom"
 import { useDispatch, useSelector } from "react-redux"
-import { fetchMe } from "./store/authSlice"
+import { fetchMe, logout } from "./store/authSlice"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import DashboardLayout from "./layouts/DashboardLayout"
@@ -32,7 +32,8 @@ function RequireAuth({ children }) {
   const isAdmin = user?.role === "admin" || user?.role === "superAdmin"
 
   if (!token) return <Navigate to="/login" replace />
-  if (user && !isAdmin) return <Navigate to="/login" replace />
+  if (!user) return <PageLoader />
+  if (!isAdmin) return <Navigate to="/login" replace />
 
   return children
 }
@@ -46,6 +47,16 @@ function App() {
       dispatch(fetchMe())
     }
   }, [dispatch, token])
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key === "dashboardToken" && !event.newValue) {
+        dispatch(logout())
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
+  }, [dispatch])
 
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
