@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 import { AlertTriangle, Loader2, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"

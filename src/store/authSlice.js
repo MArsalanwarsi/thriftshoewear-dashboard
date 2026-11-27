@@ -1,13 +1,37 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
 import { apiRequest } from "../lib/api"
 
-const storedToken = localStorage.getItem("dashboardToken")
-const storedUser = localStorage.getItem("dashboardUser")
-
-const parseStoredUser = () => {
-  if (!storedUser) return null
+const readStorage = (key) => {
+  if (typeof window === "undefined") return null
   try {
-    return JSON.parse(storedUser)
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+const writeStorage = (key, value) => {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // Ignore storage quota errors cleanly
+  }
+}
+
+const removeStorage = (key) => {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.removeItem(key)
+  } catch {
+    // Ignore storage removal errors cleanly
+  }
+}
+
+const parseStoredUser = (raw = readStorage("dashboardUser")) => {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
   } catch {
     return null
   }
@@ -76,21 +100,28 @@ export const verifyEmail = createAsyncThunk("auth/verifyEmail", async (token) =>
 const authSlice = createSlice({
   name: "auth",
   initialState: {
-    token: storedToken,
-    user: parseStoredUser(),
+    token: null,
+    user: null,
+    hydrated: false,
     status: "idle",
     error: null,
     message: null,
   },
   reducers: {
+    hydrateAuth(state) {
+      state.token = readStorage("dashboardToken")
+      state.user = parseStoredUser()
+      state.hydrated = true
+    },
     logout(state) {
       state.token = null
       state.user = null
+      state.hydrated = true
       state.status = "idle"
       state.error = null
       state.message = null
-      localStorage.removeItem("dashboardToken")
-      localStorage.removeItem("dashboardUser")
+      removeStorage("dashboardToken")
+      removeStorage("dashboardUser")
     },
     clearAuthError(state) {
       state.error = null
@@ -106,24 +137,27 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.status = "succeeded"
+        state.hydrated = true
         state.token = action.payload.token
         state.user = action.payload.user
-        localStorage.setItem("dashboardToken", action.payload.token)
-        localStorage.setItem("dashboardUser", JSON.stringify(action.payload.user))
+        writeStorage("dashboardToken", action.payload.token)
+        writeStorage("dashboardUser", JSON.stringify(action.payload.user))
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = "failed"
         state.error = action.error.message
       })
       .addCase(fetchMe.fulfilled, (state, action) => {
+        state.hydrated = true
         state.user = action.payload
-        localStorage.setItem("dashboardUser", JSON.stringify(action.payload))
+        writeStorage("dashboardUser", JSON.stringify(action.payload))
       })
       .addCase(fetchMe.rejected, (state) => {
+        state.hydrated = true
         state.token = null
         state.user = null
-        localStorage.removeItem("dashboardToken")
-        localStorage.removeItem("dashboardUser")
+        removeStorage("dashboardToken")
+        removeStorage("dashboardUser")
       })
       .addMatcher(
         (action) =>
@@ -168,5 +202,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { logout, clearAuthError } = authSlice.actions
+export const { hydrateAuth, logout, clearAuthError } = authSlice.actions
 export default authSlice.reducer

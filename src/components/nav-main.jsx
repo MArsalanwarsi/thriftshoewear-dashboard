@@ -1,5 +1,8 @@
+"use client"
+
 import { ChevronRight } from "lucide-react"
-import { Link, useLocation } from "react-router-dom"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   Collapsible,
   CollapsibleContent,
@@ -16,18 +19,18 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 
-export function NavMain({ items = [] }) {
-  const location = useLocation()
+export function NavMain({ items = [], label }) {
+  const pathname = usePathname() || "/"
 
   const checkActive = (url) => {
     if (!url) return false
-    if (url === "/") return location.pathname === "/"
-    return location.pathname === url || location.pathname.startsWith(`${url}/`)
+    if (url === "/") return pathname === "/"
+    return pathname === url || pathname.startsWith(`${url}/`)
   }
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{items[0]?.platform || "Operations"}</SidebarGroupLabel>
+      <SidebarGroupLabel>{label || items[0]?.platform || "Operations"}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
           const hasChildren = Array.isArray(item.items) && item.items.length > 0
@@ -43,7 +46,7 @@ export function NavMain({ items = [] }) {
                   tooltip={item.title}
                   isActive={isItemDirectlyActive}
                 >
-                  <Link to={item.url}>
+                  <Link href={item.url}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </Link>
@@ -74,7 +77,7 @@ export function NavMain({ items = [] }) {
                       return (
                         <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton asChild isActive={isSubActive}>
-                            <Link to={subItem.url}>
+                            <Link href={subItem.url}>
                               {subItem.icon && <subItem.icon className="size-4 shrink-0" />}
                               <span>{subItem.title}</span>
                             </Link>

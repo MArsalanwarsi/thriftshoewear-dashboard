@@ -1,3 +1,5 @@
+"use client"
+
 import {
   ChevronsUpDown,
   LogOut,
@@ -6,7 +8,8 @@ import {
   Users,
 } from "lucide-react"
 import { useDispatch, useSelector } from "react-redux"
-import { Link, useNavigate } from "react-router-dom"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Avatar,
   AvatarFallback,
@@ -32,19 +35,10 @@ import { logout } from "@/store/authSlice"
 export function NavUser({ user: propUser }) {
   const { isMobile } = useSidebar()
   const dispatch = useDispatch()
-  const navigate = useNavigate()
+  const router = useRouter()
 
   const reduxUser = useSelector((state) => state.auth?.user)
-
-  // Resolve user from props, Redux store, or localStorage
-  const user = propUser || reduxUser || (() => {
-    try {
-      const stored = localStorage.getItem("dashboardUser")
-      return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
-  })()
+  const user = propUser || reduxUser
 
   const displayName =
     user?.displayName ||
@@ -74,9 +68,11 @@ export function NavUser({ user: propUser }) {
     } catch {
       // In case redux dispatch is unavailable
     }
-    localStorage.removeItem("dashboardToken")
-    localStorage.removeItem("dashboardUser")
-    navigate("/login")
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("dashboardToken")
+      window.localStorage.removeItem("dashboardUser")
+    }
+    router.push("/login")
   }
 
   return (
@@ -129,19 +125,19 @@ export function NavUser({ user: propUser }) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
+                <Link href="/settings" className="flex items-center gap-2 cursor-pointer">
                   <Settings className="size-4" />
                   <span>Settings</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to="/users" className="flex items-center gap-2 cursor-pointer">
+                <Link href="/users" className="flex items-center gap-2 cursor-pointer">
                   <Users className="size-4" />
                   <span>Staff Directory</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to="/users/access-requests" className="flex items-center gap-2 cursor-pointer">
+                <Link href="/users/access-requests" className="flex items-center gap-2 cursor-pointer">
                   <UserCheck className="size-4" />
                   <span>Access Requests</span>
                 </Link>

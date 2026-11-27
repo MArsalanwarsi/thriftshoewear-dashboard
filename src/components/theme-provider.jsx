@@ -1,61 +1,92 @@
-import { createContext, useContext, useEffect, useState } from "react"
+"use client"
 
-const initialState = {
-  theme: "system",
-  setTheme: () => null,
+import { useCallback, useEffect, useState } from "react"
+
+const DEFAULT_STORAGE_KEY = "tsw-dashboard-theme"
+const THEME_EVENT = "tsw-dashboard-theme-change"
+
+function applyThemeToDocument(theme) {
+  if (typeof window === "undefined") return undefined
+  const root = window.document.documentElement
+  root.classList.remove("light", "dark")
+
+  if (theme === "system") {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+    const syncSystem = () => {
+      root.classList.remove("light", "dark")
+      root.classList.add(mediaQuery.matches ? "dark" : "light")
+    }
+    syncSystem()
+    mediaQuery.addEventListener("change", syncSystem)
+    return () => mediaQuery.removeEventListener("change", syncSystem)
+  }
+
+  root.classList.add(theme)
+  return undefined
 }
-
-const ThemeProviderContext = createContext(initialState)
 
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  storageKey = "vite-ui-theme",
-  ...props
+  storageKey = DEFAULT_STORAGE_KEY,
 }) {
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem(storageKey) || defaultTheme
-  )
+  const [theme, setThemeState] = useState(defaultTheme)
 
   useEffect(() => {
-    const root = window.document.documentElement
-    root.classList.remove("light", "dark")
-
-    if (theme === "system") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-      const applySystemTheme = () => {
-        root.classList.remove("light", "dark")
-        root.classList.add(mediaQuery.matches ? "dark" : "light")
-      }
-
-      applySystemTheme()
-      mediaQuery.addEventListener("change", applySystemTheme)
-      return () => mediaQuery.removeEventListener("change", applySystemTheme)
+    try {
+      const saved = window.localStorage.getItem(storageKey) || defaultTheme
+      setThemeState(saved)
+    } catch {
+      setThemeState(defaultTheme)
     }
 
-    root.classList.add(theme)
-  }, [theme])
+    const onThemeEvent = (event) => {
+      if (event?.detail?.theme) {
+        setThemeState(event.detail.theme)
+      }
+    }
+    window.addEventListener(THEME_EVENT, onThemeEvent)
+    return () => window.removeEventListener(THEME_EVENT, onThemeEvent)
+  }, [defaultTheme, storageKey])
 
-  const value = {
-    theme,
-    setTheme: (newTheme) => {
-      localStorage.setItem(storageKey, newTheme)
-      setTheme(newTheme)
-    },
-  }
+  useEffect(() => applyThemeToDocument(theme), [theme])
 
-  return (
-    <ThemeProviderContext.Provider {...props} value={value}>
-      {children}
-    </ThemeProviderContext.Provider>
-  )
+  return children
 }
 
-export const useTheme = () => {
-  const context = useContext(ThemeProviderContext)
+export function useTheme(storageKey = DEFAULT_STORAGE_KEY) {
+  const [theme, setThemeState] = useState("system")
 
-  if (context === undefined)
-    throw new Error("useTheme must be used within a ThemeProvider")
+  useEffect(() => {
+    try {
+      setThemeState(window.localStorage.getItem(storageKey) || "system")
+    } catch {
+      setThemeState("system")
+    }
 
-  return context
+    const onThemeEvent = (event) => {
+      if (event?.detail?.theme) {
+        setThemeState(event.detail.theme)
+      }
+    }
+    window.addEventListener(THEME_EVENT, onThemeEvent)
+    return () => window.removeEventListener(THEME_EVENT, onThemeEvent)
+  }, [storageKey])
+
+  const setTheme = useCallback(
+    (nextTheme) => {
+      try {
+        window.localStorage.setItem(storageKey, nextTheme)
+      } catch {
+        // Ignore storage failure
+      }
+      setThemeState(nextTheme)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: { theme: nextTheme } }))
+      }
+    },
+    [storageKey],
+  )
+
+  return { theme, setTheme }
 }

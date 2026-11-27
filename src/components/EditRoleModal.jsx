@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 import { AlertCircle, Loader2, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"

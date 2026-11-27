@@ -2,9 +2,13 @@
 node_modules/
 
 # Production build output
+.next/
+out/
+.vercel
 dist/
 dist-ssr/
 build/
+artifacts/
 
 # Vite and tool caches
 .vite/

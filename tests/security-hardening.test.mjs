@@ -23,9 +23,10 @@ describe("Dashboard Security Hardening Regression Suite", () => {
   })
 
   it("RequireAuth fails closed while user profile is unresolved and clears cached PII on logout", () => {
-    const appSrc = fs.readFileSync(path.join(root, "src/App.jsx"), "utf8")
-    assert.match(appSrc, /if\s*\(!user\)\s*return\s*<PageLoader\s*\/>/)
-    assert.match(appSrc, /window\.addEventListener\("storage"/)
+    const layoutSrc = fs.readFileSync(path.join(root, "src/app/(dashboard)/layout.jsx"), "utf8")
+    const providersSrc = fs.readFileSync(path.join(root, "src/app/providers.jsx"), "utf8")
+    assert.match(layoutSrc, /if\s*\(!user\)\s*return\s*<PageLoader\s*\/>/)
+    assert.match(providersSrc, /window\.addEventListener\("storage"/)
 
     const adminSliceSrc = fs.readFileSync(path.join(root, "src/store/adminSlice.js"), "utf8")
     assert.match(adminSliceSrc, /\.addCase\(logout,/)

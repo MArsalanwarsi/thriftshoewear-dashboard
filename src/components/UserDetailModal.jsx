@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 import { Calendar, CheckCircle2, Mail, MapPin, Phone, Shield, User, XCircle } from "lucide-react"
 import { formatDate } from "@/lib/format"

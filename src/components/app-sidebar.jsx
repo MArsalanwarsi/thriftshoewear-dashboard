@@ -1,5 +1,8 @@
+"use client"
+
 import * as React from "react"
 import {
+  Activity,
   BadgeDollarSign,
   Image,
   LayoutDashboard,
@@ -10,6 +13,7 @@ import {
   Receipt,
   Settings,
   ShoppingBag,
+  SlidersHorizontal,
   Tags,
   TicketPercent,
   Truck,
@@ -17,7 +21,7 @@ import {
   Users,
 } from "lucide-react"
 import { useSelector } from "react-redux"
-import { Link } from "react-router-dom"
+import Link from "next/link"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -31,7 +35,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-const navData = {
+export const navData = {
   navMain: [
     {
       platform: "Operations",
@@ -124,20 +128,25 @@ const navData = {
       icon: Settings,
     },
   ],
+  superAdminNav: [
+    {
+      platform: "Super Admin",
+      title: "Audit & Error Logs",
+      url: "/logs",
+      icon: Activity,
+    },
+    {
+      platform: "Super Admin",
+      title: "Feature Controls",
+      url: "/features",
+      icon: SlidersHorizontal,
+    },
+  ],
 }
 
 export function AppSidebar({ ...props }) {
-  const reduxUser = useSelector((state) => state.auth?.user)
-
-  const user = React.useMemo(() => {
-    if (reduxUser) return reduxUser
-    try {
-      const stored = localStorage.getItem("dashboardUser")
-      return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
-  }, [reduxUser])
+  const user = useSelector((state) => state.auth?.user)
+  const isSuperAdmin = user?.role === "superAdmin"
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -149,7 +158,7 @@ export function AppSidebar({ ...props }) {
               size="lg"
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <Link to="/" className="flex items-center gap-3">
+              <Link href="/" className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">
                   <PackageCheck className="size-5" />
                 </div>
@@ -165,7 +174,8 @@ export function AppSidebar({ ...props }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navData.navMain} />
+        <NavMain items={navData.navMain} label="Operations" />
+        {isSuperAdmin && <NavMain items={navData.superAdminNav} label="Super Admin" />}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

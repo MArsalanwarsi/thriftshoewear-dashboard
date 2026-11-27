@@ -1,5 +1,6 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://thriftshoewear-backend.vercel.app/api/v1"
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "https://thriftshoewear-backend.vercel.app/api/v1"
 
 const appendQuery = (url, params = {}) => {
   Object.entries(params).forEach(([key, value]) => {
@@ -37,18 +38,20 @@ export async function apiRequest(path, options = {}) {
   }
 
   if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem("dashboardToken")
-      localStorage.removeItem("dashboardUser")
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.localStorage.removeItem("dashboardToken")
+      window.localStorage.removeItem("dashboardUser")
       if (
-        typeof window !== "undefined" &&
         window.location.pathname !== "/login" &&
         !path.startsWith("/auth/login")
       ) {
         window.location.href = "/login"
       }
     }
-    throw new Error(payload.message || `Request failed with ${response.status}`)
+    const err = new Error(payload.message || `Request failed with ${response.status}`)
+    err.status = response.status
+    err.details = payload.details || null
+    throw err
   }
 
   return payload

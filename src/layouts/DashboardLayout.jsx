@@ -1,4 +1,5 @@
-import { Outlet } from "react-router-dom"
+"use client"
+
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import {
@@ -6,7 +7,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 
-export default function DashboardLayout() {
+export default function DashboardLayout({ children }) {
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -14,7 +15,7 @@ export default function DashboardLayout() {
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2 p-4 md:p-6">
-            <Outlet />
+            {children}
           </div>
         </div>
       </SidebarInset>
