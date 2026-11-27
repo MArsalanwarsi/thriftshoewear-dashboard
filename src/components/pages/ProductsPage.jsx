@@ -430,7 +430,7 @@ export default function ProductsPage() {
                           )}
                           <div className="min-w-0">
                             <Link
-                              to={`/products/${product._id}`}
+                              href={`/products/${product._id}`}
                               className="font-semibold text-foreground hover:underline line-clamp-1 block"
                             >
                               {product.name}

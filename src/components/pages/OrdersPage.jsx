@@ -512,7 +512,7 @@ export default function OrdersPage() {
                       {/* Order Number */}
                       <TableCell className="font-mono font-semibold text-xs text-primary">
                         <Link
-                          to={`/orders/${order._id}`}
+                          href={`/orders/${order._id}`}
                           className="hover:underline flex items-center gap-1"
                         >
                           {order.orderNumber}

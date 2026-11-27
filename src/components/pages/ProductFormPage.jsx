@@ -204,7 +204,7 @@ export default function ProductFormPage() {
     }
 
     loadProduct()
-  }, [id, isEditMode, token, navigate])
+  }, [id, isEditMode, token, router])
 
   // Handle Field Change
   const updateField = (key, val) => {

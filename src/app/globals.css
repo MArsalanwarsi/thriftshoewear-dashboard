@@ -194,11 +194,16 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body {
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     min-height: 100vh;
     min-width: 320px;
-    overflow-x: hidden;
   }
 }

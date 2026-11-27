@@ -33,6 +33,16 @@ test("Architecture Hygiene: Zero react-router-dom, zero import.meta.env, zero Vi
       false,
       `${path.relative(projectRoot, file)} still references import.meta.env`
     )
+    assert.equal(
+      /<Link[\s\S]*?\bto\s*=/.test(content),
+      false,
+      `${path.relative(projectRoot, file)} still uses Link to= instead of href=`
+    )
+    assert.equal(
+      /\bnavigate\s*\(|,\s*navigate\b/.test(content),
+      false,
+      `${path.relative(projectRoot, file)} still references navigate instead of router`
+    )
   }
 
   const themeSrc = fs.readFileSync(path.join(projectRoot, "src/components/theme-provider.jsx"), "utf8")
