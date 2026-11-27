@@ -219,6 +219,7 @@ export function uploadMultiple(files, onProgressOrOptions, extraOptions = {}) {
  * @param {string} [params.search=""]
  * @param {string} [params.format=""]
  * @param {string} [params.folder=""]
+ * @param {boolean} [params.sync=true]
  * @returns {Promise<{ success: boolean, media: Array<Object>, pagination: { page: number, limit: number, total: number, pages: number } }>}
  */
 export async function fetchMedia({
@@ -227,6 +228,7 @@ export async function fetchMedia({
   search = "",
   format = "",
   folder = "",
+  sync = true,
 } = {}) {
   const query = new URLSearchParams()
   if (page) query.set("page", String(page))
@@ -234,6 +236,7 @@ export async function fetchMedia({
   if (search && String(search).trim()) query.set("search", String(search).trim())
   if (format && String(format).trim()) query.set("format", String(format).trim().toLowerCase())
   if (folder && folder !== "all" && String(folder).trim()) query.set("folder", String(folder).trim())
+  if (sync === false) query.set("sync", "false")
 
   const url = `${getClientApiBaseUrl()}/upload/media?${query.toString()}`
 
@@ -270,6 +273,54 @@ export async function fetchMedia({
       total: Array.isArray(data.media) ? data.media.length : 0,
       pages: 1,
     },
+  }
+}
+
+/**
+ * Check where a Cloudflare R2 image is referenced before deletion
+ *
+ * @param {string} keyOrUrl
+ * @returns {Promise<{ success: boolean, key: string, inUse: boolean, count: number, usages: Array<Object> }>}
+ */
+export async function fetchMediaUsage(keyOrUrl) {
+  if (!keyOrUrl) {
+    throw new Error("A media key or URL is required")
+  }
+
+  const clean = String(keyOrUrl).trim()
+  const isUrl = clean.startsWith("http://") || clean.startsWith("https://")
+  const query = new URLSearchParams(isUrl ? { url: clean } : { key: clean })
+
+  const response = await fetch(`${getClientApiBaseUrl()}/upload/usage?${query.toString()}`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+    },
+  })
+
+  let data = {}
+  try {
+    data = await response.json()
+  } catch {
+    throw new Error(`Failed to parse media usage response (status ${response.status})`)
+  }
+
+  if (response.status === 401) {
+    handleAuthExpiry()
+    throw new Error("Authentication expired. Please log in again.")
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || `Failed to verify media usage (status ${response.status})`)
+  }
+
+  return {
+    success: true,
+    key: data.key || clean,
+    inUse: Boolean(data.inUse),
+    count: Number(data.count || 0),
+    usages: Array.isArray(data.usages) ? data.usages : [],
   }
 }
 
@@ -312,7 +363,11 @@ export async function deleteMedia(keyOrUrl) {
   }
 
   if (!response.ok) {
-    throw new Error(data.message || `Failed to delete media (status ${response.status})`)
+    const err = new Error(data.message || `Failed to delete media (status ${response.status})`)
+    err.status = response.status
+    err.code = data.code || ""
+    err.usages = Array.isArray(data.usages) ? data.usages : []
+    throw err
   }
 
   return {
@@ -373,6 +428,7 @@ export default {
   uploadSingle,
   uploadMultiple,
   fetchMedia,
+  fetchMediaUsage,
   deleteMedia,
   fetchStorageStats,
   uploadSingleFile,

@@ -32,8 +32,9 @@ const MediaGalleryDialog = dynamic(
   () => import("./MediaGalleryDialog").then((m) => m.MediaGalleryDialog),
   { ssr: false }
 )
-import { uploadMultiple, deleteMedia } from "@/lib/uploadApi"
+import { uploadMultiple, deleteMedia, fetchMediaUsage } from "@/lib/uploadApi"
 import { compressImageBeforeUpload } from "@/lib/imageCompression"
+import { MediaUsageNotice } from "./MediaUsageNotice"
 
 const ALLOWED_RASTER_MIME = new Set([
   "image/jpeg",
@@ -58,6 +59,9 @@ export function ImageGalleryUpload({
   // Cloud deletion prompt
   const [deletingImage, setDeletingImage] = React.useState(null)
   const [deleting, setDeleting] = React.useState(false)
+  const [usageChecking, setUsageChecking] = React.useState(false)
+  const [deleteUsages, setDeleteUsages] = React.useState([])
+  const [usageError, setUsageError] = React.useState("")
 
   const fileInputRef = React.useRef(null)
 
@@ -194,17 +198,42 @@ export function ImageGalleryUpload({
     onChange?.(normalizeImages(updated))
   }
 
+  const openDeleteDialog = async (img) => {
+    setDeletingImage(img)
+    setDeleteUsages([])
+    setUsageError("")
+    setUsageChecking(true)
+    try {
+      const res = await fetchMediaUsage(img?.key || img?.url)
+      setDeleteUsages(res.usages || [])
+    } catch (err) {
+      setUsageError(err.message || "Unable to verify references")
+    } finally {
+      setUsageChecking(false)
+    }
+  }
+
+  const closeDeleteDialog = () => {
+    setDeletingImage(null)
+    setDeleteUsages([])
+    setUsageError("")
+    setUsageChecking(false)
+  }
+
   // Cloud deletion
   const executeCloudDelete = async () => {
-    if (!deletingImage) return
+    if (!deletingImage || deleteUsages.length > 0) return
     setDeleting(true)
     try {
       await deleteMedia(deletingImage.key || deletingImage.url)
       toast.success("Image permanently removed from Cloudflare R2")
       const updated = imageList.filter((img) => img.url !== deletingImage.url)
       onChange?.(normalizeImages(updated))
-      setDeletingImage(null)
+      closeDeleteDialog()
     } catch (err) {
+      if (Array.isArray(err.usages) && err.usages.length > 0) {
+        setDeleteUsages(err.usages)
+      }
       toast.error(err.message || "Failed to delete from cloud")
     } finally {
       setDeleting(false)
@@ -407,7 +436,7 @@ export function ImageGalleryUpload({
                     variant="destructive"
                     size="icon"
                     className="size-6"
-                    onClick={() => setDeletingImage(img)}
+                    onClick={() => openDeleteDialog(img)}
                     title="Delete or detach photo"
                   >
                     <Trash2 className="size-3" />
@@ -452,7 +481,7 @@ export function ImageGalleryUpload({
       <AlertDialog
         open={Boolean(deletingImage)}
         onOpenChange={(isOpen) => {
-          if (!isOpen && !deleting) setDeletingImage(null)
+          if (!isOpen && !deleting) closeDeleteDialog()
         }}
       >
         <AlertDialogContent>
@@ -461,18 +490,25 @@ export function ImageGalleryUpload({
               <Trash2 className="size-5" />
               Remove Photo from Product?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs space-y-2">
-              <p>
-                Choose how you want to remove this photo:
-              </p>
-              <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                <li>
-                  <strong className="text-foreground">Detach from Product:</strong> Removes this photo from this product form while keeping the image file safe in Cloudflare R2.
-                </li>
-                <li>
-                  <strong className="text-foreground">Delete from Cloudflare R2:</strong> Permanently deletes the file from R2 object storage.
-                </li>
-              </ul>
+            <AlertDialogDescription asChild>
+              <div className="text-xs space-y-3 text-muted-foreground">
+                <p>
+                  Choose how you want to remove this photo:
+                </p>
+                <MediaUsageNotice
+                  checking={usageChecking}
+                  usages={deleteUsages}
+                  error={usageError}
+                />
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>
+                    <strong className="text-foreground">Detach Only:</strong> Removes this photo from this product form while keeping the image file safe in Cloudflare R2.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Delete from R2 Permanently:</strong> Expunges unused files from Cloudflare R2 object storage (blocked if referenced).
+                  </li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
@@ -485,7 +521,7 @@ export function ImageGalleryUpload({
               onClick={() => {
                 const idx = imageList.findIndex((img) => img.url === deletingImage?.url)
                 if (idx !== -1) detachImage(idx)
-                setDeletingImage(null)
+                closeDeleteDialog()
                 toast.info("Photo detached from product")
               }}
             >
@@ -497,7 +533,7 @@ export function ImageGalleryUpload({
                 e.preventDefault()
                 executeCloudDelete()
               }}
-              disabled={deleting}
+              disabled={deleting || usageChecking || deleteUsages.length > 0}
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs"
             >
               {deleting ? (

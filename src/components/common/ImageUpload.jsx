@@ -27,8 +27,9 @@ const MediaGalleryDialog = dynamic(
   () => import("./MediaGalleryDialog").then((m) => m.MediaGalleryDialog),
   { ssr: false }
 )
-import { uploadSingle, deleteMedia } from "@/lib/uploadApi"
+import { uploadSingle, deleteMedia, fetchMediaUsage } from "@/lib/uploadApi"
 import { compressImageBeforeUpload } from "@/lib/imageCompression"
+import { MediaUsageNotice } from "./MediaUsageNotice"
 
 const ALLOWED_RASTER_MIME = new Set([
   "image/jpeg",
@@ -58,6 +59,9 @@ export function ImageUpload({
   const [galleryOpen, setGalleryOpen] = React.useState(false)
   const [deletePromptOpen, setDeletePromptOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
+  const [usageChecking, setUsageChecking] = React.useState(false)
+  const [deleteUsages, setDeleteUsages] = React.useState([])
+  const [usageError, setUsageError] = React.useState("")
 
   const fileInputRef = React.useRef(null)
 
@@ -123,9 +127,26 @@ export function ImageUpload({
     onChange?.("", null)
   }
 
+  // Open deletion confirmation & verify active usage across store entities
+  const handleOpenDeletePrompt = async () => {
+    if (!currentUrl) return
+    setDeletePromptOpen(true)
+    setDeleteUsages([])
+    setUsageError("")
+    setUsageChecking(true)
+    try {
+      const res = await fetchMediaUsage(currentUrl)
+      setDeleteUsages(res.usages || [])
+    } catch (err) {
+      setUsageError(err.message || "Unable to verify references")
+    } finally {
+      setUsageChecking(false)
+    }
+  }
+
   // Handle permanent cloud deletion
   const handleConfirmCloudDelete = async () => {
-    if (!currentUrl) return
+    if (!currentUrl || deleteUsages.length > 0) return
     setDeleting(true)
     try {
       await deleteMedia(currentUrl)
@@ -133,6 +154,9 @@ export function ImageUpload({
       handleClear()
       setDeletePromptOpen(false)
     } catch (err) {
+      if (Array.isArray(err.usages) && err.usages.length > 0) {
+        setDeleteUsages(err.usages)
+      }
       toast.error(err.message || "Failed to delete image from cloud")
     } finally {
       setDeleting(false)
@@ -249,8 +273,8 @@ export function ImageUpload({
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => setDeletePromptOpen(true)}
-                  title="Permanently delete from Cloudflare R2"
+                  onClick={handleOpenDeletePrompt}
+                  title="Verify usage & permanently delete from Cloudflare R2"
                 >
                   <Trash2 className="size-3.5 mr-0.5" /> Delete
                 </Button>
@@ -344,20 +368,36 @@ export function ImageUpload({
       />
 
       {/* Cloud Deletion Confirmation */}
-      <AlertDialog open={deletePromptOpen} onOpenChange={setDeletePromptOpen}>
+      <AlertDialog
+        open={deletePromptOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen && !deleting) {
+            setDeletePromptOpen(false)
+            setDeleteUsages([])
+            setUsageError("")
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive flex items-center gap-2">
               <Trash2 className="size-5" />
               Permanently Delete Image from Cloudflare R2?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs space-y-1">
-              <p>
-                This action permanently deletes this image object from Cloudflare R2 storage.
-              </p>
-              <p className="text-muted-foreground">
-                If you only want to remove it from this form without deleting the cloud file, choose Cancel and click "Detach".
-              </p>
+            <AlertDialogDescription asChild>
+              <div className="text-xs space-y-3 text-muted-foreground">
+                <p>
+                  This action permanently deletes the object from Cloudflare R2 storage if it is not referenced elsewhere.
+                </p>
+                <MediaUsageNotice
+                  checking={usageChecking}
+                  usages={deleteUsages}
+                  error={usageError}
+                />
+                <p>
+                  If you only want to remove it from this form without deleting the cloud file, choose Cancel and click &quot;Detach&quot;.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -368,7 +408,7 @@ export function ImageUpload({
                 e.preventDefault()
                 handleConfirmCloudDelete()
               }}
-              disabled={deleting}
+              disabled={deleting || usageChecking || deleteUsages.length > 0}
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >
               {deleting ? (

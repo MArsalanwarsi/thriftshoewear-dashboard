@@ -314,8 +314,14 @@ async function mountDashboardApiMocks(target, activeUser, featureStateRef) {
     if (pathname.endsWith("/site/assets")) {
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: { assets: [] }, meta: { page: 1, pages: 1, total: 0 } }) })
     }
+    if (pathname.endsWith("/upload/usage")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, key: "site/sample.webp", inUse: false, count: 0, usages: [] }) })
+    }
+    if (pathname.endsWith("/upload/storage-stats")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, storage: { fileCount: 0, totalSize: 0, formattedSize: "0 B" } }) })
+    }
     if (pathname.includes("/upload/media")) {
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: { media: [], storage: { fileCount: 0, formattedSize: "0 B" } } }) })
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, media: [], pagination: { page: 1, limit: 24, total: 0, pages: 1 }, data: { media: [], storage: { fileCount: 0, formattedSize: "0 B" } } }) })
     }
 
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data: {} }) })

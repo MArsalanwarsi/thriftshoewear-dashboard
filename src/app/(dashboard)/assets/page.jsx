@@ -1,9 +1,9 @@
-import PageView from "@/components/pages/ResourcePage"
+import SiteAssetsPage from "@/components/pages/SiteAssetsPage"
 
 export const metadata = {
   title: "Site Assets",
 }
 
 export default function Page() {
-  return <PageView resource="assets" />
+  return <SiteAssetsPage />
 }

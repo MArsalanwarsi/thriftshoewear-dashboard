@@ -39,18 +39,22 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
   fetchMedia,
+  fetchMediaUsage,
   deleteMedia,
   uploadMultiple,
   uploadSingle,
 } from "@/lib/uploadApi"
+import { compressImageBeforeUpload } from "@/lib/imageCompression"
+import { MediaUsageNotice } from "./MediaUsageNotice"
 
 const FOLDERS = [
   { id: "all", label: "All Folders" },
+  { id: "site", label: "Site Assets" },
   { id: "products", label: "Products" },
+  { id: "categories", label: "Categories" },
   { id: "profiles", label: "Avatars" },
   { id: "payments", label: "Receipts" },
-  { id: "categories", label: "Categories" },
-  { id: "site", label: "Site Assets" },
+  { id: "uploads", label: "Uploads" },
 ]
 
 function formatBytes(bytes, decimals = 1) {
@@ -88,7 +92,8 @@ export function MediaGalleryDialog({
   const [loading, setLoading] = React.useState(false)
   const [selectedItems, setSelectedItems] = React.useState([])
   const [search, setSearch] = React.useState("")
-  const [folder, setFolder] = React.useState(initialFolder)
+  // Default browse view to "all" so images uploaded in Site Assets or other folders are immediately pickable
+  const [folder, setFolder] = React.useState("all")
   const [page, setPage] = React.useState(1)
   const [pagination, setPagination] = React.useState({ page: 1, limit: 20, total: 0, pages: 1 })
 
@@ -98,9 +103,12 @@ export function MediaGalleryDialog({
   const [uploadProgress, setUploadProgress] = React.useState(0)
   const fileInputRef = React.useRef(null)
 
-  // Deletion prompt state
+  // Deletion prompt + usage verification state
   const [deletingItem, setDeletingItem] = React.useState(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
+  const [usageChecking, setUsageChecking] = React.useState(false)
+  const [deletingUsages, setDeletingUsages] = React.useState([])
+  const [usageError, setUsageError] = React.useState("")
 
   // Load media when dialog opens or filters change
   const loadMedia = React.useCallback(
@@ -112,6 +120,7 @@ export function MediaGalleryDialog({
           limit: 20,
           search,
           folder: folder === "all" ? "" : folder,
+          sync: true,
         })
         setMedia(res.media || [])
         setPagination(res.pagination || { page: pageToLoad, limit: 20, total: (res.media || []).length, pages: 1 })
@@ -126,9 +135,16 @@ export function MediaGalleryDialog({
   )
 
   React.useEffect(() => {
-    if (open) {
-      loadMedia(1)
-      setSelectedItems([])
+    if (!open) return undefined
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        setSelectedItems([])
+        loadMedia(1)
+      }
+    })
+    return () => {
+      cancelled = true
     }
   }, [open, loadMedia])
 
@@ -190,16 +206,18 @@ const ALLOWED_RASTER_MIME = new Set([
     setUploadProgress(10)
 
     try {
-      const targetFolder = folder === "all" ? "products" : folder
+      const defaultUploadFolder = initialFolder && initialFolder !== "all" ? initialFolder : "site"
+      const targetFolder = folder === "all" ? defaultUploadFolder : folder
+      const optimizedFiles = await Promise.all(fileList.map((f) => compressImageBeforeUpload(f)))
       let uploadedResults = []
 
-      if (fileList.length === 1) {
-        const res = await uploadSingle(fileList[0], (pct) => setUploadProgress(pct), {
+      if (optimizedFiles.length === 1) {
+        const res = await uploadSingle(optimizedFiles[0], (pct) => setUploadProgress(pct), {
           folder: targetFolder,
         })
         uploadedResults = [res]
       } else {
-        const res = await uploadMultiple(fileList, (pct) => setUploadProgress(pct), {
+        const res = await uploadMultiple(optimizedFiles, (pct) => setUploadProgress(pct), {
           folder: targetFolder,
         })
         uploadedResults = res.files || []
@@ -247,9 +265,33 @@ const ALLOWED_RASTER_MIME = new Set([
     }
   }
 
+  // Open delete confirmation & verify usage across entities
+  const handleOpenDeletePrompt = async (item) => {
+    setDeletingItem(item)
+    setDeletingUsages([])
+    setUsageError("")
+    setUsageChecking(true)
+    try {
+      const targetKey = item?.key || item?.url
+      const res = await fetchMediaUsage(targetKey)
+      setDeletingUsages(res.usages || [])
+    } catch (err) {
+      setUsageError(err.message || "Unable to verify references")
+    } finally {
+      setUsageChecking(false)
+    }
+  }
+
+  const closeDeletePrompt = () => {
+    setDeletingItem(null)
+    setDeletingUsages([])
+    setUsageError("")
+    setUsageChecking(false)
+  }
+
   // Handle permanent deletion from Cloudflare R2
   const handleExecuteDelete = async () => {
-    if (!deletingItem) return
+    if (!deletingItem || deletingUsages.length > 0) return
     setIsDeleting(true)
     try {
       const targetKey = deletingItem.key || deletingItem.url
@@ -259,8 +301,11 @@ const ALLOWED_RASTER_MIME = new Set([
       setSelectedItems((prev) =>
         prev.filter((x) => (x.key ? x.key !== deletingItem.key : x.url !== deletingItem.url))
       )
-      setDeletingItem(null)
+      closeDeletePrompt()
     } catch (err) {
+      if (Array.isArray(err.usages) && err.usages.length > 0) {
+        setDeletingUsages(err.usages)
+      }
       toast.error(err.message || "Failed to delete image")
     } finally {
       setIsDeleting(false)
@@ -495,10 +540,10 @@ const ALLOWED_RASTER_MIME = new Set([
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setDeletingItem(item)
+                            handleOpenDeletePrompt(item)
                           }}
                           className="absolute top-1.5 right-1.5 rounded-md p-1 bg-background/85 text-destructive hover:bg-destructive hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-all cursor-pointer shadow-xs"
-                          title="Permanently delete from Cloudflare R2"
+                          title="Verify usage & delete from Cloudflare R2"
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -600,7 +645,7 @@ const ALLOWED_RASTER_MIME = new Set([
       <AlertDialog
         open={Boolean(deletingItem)}
         onOpenChange={(isOpen) => {
-          if (!isOpen && !isDeleting) setDeletingItem(null)
+          if (!isOpen && !isDeleting) closeDeletePrompt()
         }}
       >
         <AlertDialogContent>
@@ -609,17 +654,24 @@ const ALLOWED_RASTER_MIME = new Set([
               <Trash2 className="size-5" />
               Permanently Delete Image from Cloudflare R2?
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2 text-xs">
-              <p>
-                Are you sure you want to delete{" "}
-                <strong className="text-foreground">
-                  {deletingItem?.originalName || deletingItem?.key}
-                </strong>
-                ?
-              </p>
-              <p className="text-muted-foreground">
-                This image will be permanently expunged from the Cloudflare R2 bucket. Any products or pages referencing this URL will no longer be able to display it.
-              </p>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-xs text-muted-foreground">
+                <p>
+                  Are you sure you want to delete{" "}
+                  <strong className="text-foreground">
+                    {deletingItem?.originalName || deletingItem?.key}
+                  </strong>
+                  ?
+                </p>
+                <MediaUsageNotice
+                  checking={usageChecking}
+                  usages={deletingUsages}
+                  error={usageError}
+                />
+                <p>
+                  Deletion permanently expunges unused objects from the Cloudflare R2 bucket. Images actively referenced in products, categories, or site assets cannot be deleted.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -630,7 +682,7 @@ const ALLOWED_RASTER_MIME = new Set([
                 e.preventDefault()
                 handleExecuteDelete()
               }}
-              disabled={isDeleting}
+              disabled={isDeleting || usageChecking || deletingUsages.length > 0}
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >
               {isDeleting ? (
