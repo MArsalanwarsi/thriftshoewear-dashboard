@@ -173,10 +173,17 @@ export function PaymentProofModal({
 
   // Reset transforms whenever modal opens for a new payment
   React.useEffect(() => {
-    if (open) {
-      setZoom(100)
-      setRotation(0)
-      setSelectedProofIndex(0)
+    if (!open) return undefined
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) {
+        setZoom(100)
+        setRotation(0)
+        setSelectedProofIndex(0)
+      }
+    })
+    return () => {
+      active = false
     }
   }, [open, payment?._id])
 

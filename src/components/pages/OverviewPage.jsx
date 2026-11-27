@@ -217,10 +217,6 @@ export default function OverviewPage() {
   const [recentOrdersLoading, setRecentOrdersLoading] = useState(false)
   const [galleryOpen, setGalleryOpen] = useState(false)
 
-  useEffect(() => {
-    setLastRefreshed(new Date())
-  }, [])
-
   // Fetch recent orders directly from REST API
   const fetchRecentOrders = useCallback(async () => {
     if (!token) return
@@ -249,8 +245,13 @@ export default function OverviewPage() {
 
   // Automatic 30-second polling interval matching test harness requirement F10.4
   useEffect(() => {
-    dispatch(fetchDashboard())
-    fetchRecentOrders()
+    let active = true
+    Promise.resolve().then(() => {
+      if (!active) return
+      dispatch(fetchDashboard())
+      fetchRecentOrders()
+      setLastRefreshed(new Date())
+    })
 
     const interval = setInterval(() => {
       dispatch(fetchDashboard())
@@ -258,7 +259,10 @@ export default function OverviewPage() {
       setLastRefreshed(new Date())
     }, 30000)
 
-    return () => clearInterval(interval)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
   }, [dispatch, fetchRecentOrders])
 
   const isInitialLoading = status === "loading" && !data

@@ -117,7 +117,13 @@ export default function FeaturesPage() {
   }, [token])
 
   React.useEffect(() => {
-    fetchFeatures()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchFeatures()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchFeatures])
 
   const openVerificationModal = (item) => {

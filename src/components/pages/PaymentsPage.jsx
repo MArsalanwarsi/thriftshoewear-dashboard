@@ -139,7 +139,13 @@ export default function PaymentsPage() {
   )
 
   React.useEffect(() => {
-    fetchPayments()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchPayments()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchPayments])
 
   // Approve & Mark Paid action

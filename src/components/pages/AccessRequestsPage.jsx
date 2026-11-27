@@ -121,7 +121,13 @@ export default function AccessRequestsPage() {
   )
 
   React.useEffect(() => {
-    fetchRequests()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchRequests()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchRequests])
 
   // Action: Approve

@@ -146,7 +146,13 @@ export default function UsersPage() {
   )
 
   React.useEffect(() => {
-    fetchUsers()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchUsers()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchUsers])
 
   // Quick action: Approve dashboard access

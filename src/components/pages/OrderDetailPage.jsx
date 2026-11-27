@@ -119,7 +119,13 @@ export default function OrderDetailPage() {
   }, [id, token])
 
   React.useEffect(() => {
-    fetchOrder()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchOrder()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchOrder])
 
   // Status Transition Handler

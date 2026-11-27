@@ -174,14 +174,9 @@ export function AnalyticsChart({
   const [timeRange, setTimeRange] = React.useState("30d")
   const [metric, setMetric] = React.useState("revenue") // "revenue" | "orders"
 
-  // Automatically adapt time range on mobile viewports
-  React.useEffect(() => {
-    if (isMobile && timeRange === "90d") {
-      setTimeRange("7d")
-    }
-  }, [isMobile, timeRange])
-
-  const daysCount = timeRange === "7d" ? 7 : timeRange === "90d" ? 90 : 30
+  // Adapt 90-day view to 7 days on mobile viewports without cascading effects
+  const activeTimeRange = isMobile && timeRange === "90d" ? "7d" : timeRange
+  const daysCount = activeTimeRange === "7d" ? 7 : activeTimeRange === "90d" ? 90 : 30
 
   // Memoize generated series to prevent unnecessary recalculations
   const seriesData = React.useMemo(() => {
@@ -300,10 +295,10 @@ export function AnalyticsChart({
               <button
                 key={opt.id}
                 type="button"
-                aria-pressed={timeRange === opt.id}
+                aria-pressed={activeTimeRange === opt.id}
                 onClick={() => setTimeRange(opt.id)}
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
-                  timeRange === opt.id
+                  activeTimeRange === opt.id
                     ? "bg-background text-foreground shadow-xs"
                     : "hover:text-foreground"
                 }`}
@@ -314,7 +309,7 @@ export function AnalyticsChart({
           </div>
 
           <div className="block @[640px]/card:hidden">
-            <Select value={timeRange} onValueChange={setTimeRange}>
+            <Select value={activeTimeRange} onValueChange={setTimeRange}>
               <SelectTrigger aria-label="Select chart time range" className="h-8 w-28 text-xs">
                 <SelectValue placeholder="Range" />
               </SelectTrigger>

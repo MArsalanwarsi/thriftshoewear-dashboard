@@ -165,7 +165,13 @@ export default function ProductsPage() {
   }, [token, page, debouncedSearch, categoryFilter, conditionFilter, statusFilter, productTypeFilter])
 
   React.useEffect(() => {
-    fetchProducts()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchProducts()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchProducts])
 
   // Reset filters

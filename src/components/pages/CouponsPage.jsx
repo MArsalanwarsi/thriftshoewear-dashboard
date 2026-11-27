@@ -195,7 +195,13 @@ export default function CouponsPage() {
   }, [token, page, debouncedSearch, statusFilter, typeFilter, includeDeleted])
 
   React.useEffect(() => {
-    fetchCoupons()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchCoupons()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchCoupons])
 
   // Copy code handler

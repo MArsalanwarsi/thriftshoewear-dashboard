@@ -181,7 +181,13 @@ export default function CategoriesPage() {
   }, [token, page, debouncedSearch, typeFilter, genderFilter, statusFilter, includeDeleted])
 
   React.useEffect(() => {
-    fetchCategories()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchCategories()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchCategories])
 
   // Quick Toggle Active State

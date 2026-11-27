@@ -192,7 +192,13 @@ export default function OrdersPage() {
   }, [token, page, statusTab, paymentStatusFilter, paymentMethodFilter, debouncedSearch])
 
   React.useEffect(() => {
-    fetchOrders()
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) fetchOrders()
+    })
+    return () => {
+      active = false
+    }
   }, [fetchOrders])
 
   // Handle Quick Advance Status

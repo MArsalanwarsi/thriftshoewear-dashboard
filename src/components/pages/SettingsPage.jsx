@@ -303,8 +303,21 @@ export default function SettingsPage() {
   const { data: settingsData, status } = useSelector(
     (state) => state.admin.settings
   )
-  const [form, setForm] = React.useState(initialFormState)
-  const [originalForm, setOriginalForm] = React.useState(initialFormState)
+  const originalForm = React.useMemo(
+    () => (settingsData ? mapSettingsToForm(settingsData) : initialFormState),
+    [settingsData]
+  )
+  const [draftForm, setDraftForm] = React.useState(null)
+  const form = draftForm ?? originalForm
+  const setForm = React.useCallback(
+    (updater) => {
+      setDraftForm((prev) => {
+        const base = prev ?? originalForm
+        return typeof updater === "function" ? updater(base) : updater
+      })
+    },
+    [originalForm]
+  )
   const [isSaving, setIsSaving] = React.useState(false)
   const [activeTab, setActiveTab] = React.useState("general")
 
@@ -313,25 +326,16 @@ export default function SettingsPage() {
     dispatch(fetchSettings())
   }, [dispatch])
 
-  // Sync state when backend data arrives
-  React.useEffect(() => {
-    if (settingsData) {
-      const mapped = mapSettingsToForm(settingsData)
-      setForm(mapped)
-      setOriginalForm(mapped)
-    }
-  }, [settingsData])
-
   const hasUnsavedChanges = React.useMemo(() => {
-    return JSON.stringify(form) !== JSON.stringify(originalForm)
-  }, [form, originalForm])
+    return draftForm !== null && JSON.stringify(draftForm) !== JSON.stringify(originalForm)
+  }, [draftForm, originalForm])
 
   const handleInputChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleReset = () => {
-    setForm(originalForm)
+    setDraftForm(null)
     toast.info("Unsaved modifications reverted to server state")
   }
 
@@ -342,7 +346,7 @@ export default function SettingsPage() {
     try {
       const payload = buildPayload(form)
       const res = await dispatch(updateSettings(payload)).unwrap()
-      setOriginalForm(form)
+      setDraftForm(null)
       toast.success(res?.message || "Store settings updated successfully!")
     } catch (err) {
       toast.error(err.message || "Failed to save settings. Please try again.")
