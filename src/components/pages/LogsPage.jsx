@@ -381,12 +381,11 @@ export default function LogsPage() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="w-[125px]" aria-label="Filter by level">
+              <SelectTrigger className="w-[165px]" aria-label="Filter by level">
                 <SelectValue placeholder="Level" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="info">Info</SelectItem>
+                <SelectItem value="all">Errors &amp; Warnings</SelectItem>
                 <SelectItem value="warn">Warning</SelectItem>
                 <SelectItem value="error">Error</SelectItem>
               </SelectContent>
