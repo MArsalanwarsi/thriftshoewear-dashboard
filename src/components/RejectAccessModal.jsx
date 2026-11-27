@@ -24,12 +24,6 @@ export function RejectAccessModal({
 }) {
   const [reviewNotes, setReviewNotes] = React.useState("")
 
-  React.useEffect(() => {
-    if (user) {
-      setReviewNotes("")
-    }
-  }, [user])
-
   if (!user) return null
 
   const applicantName =

@@ -28,6 +28,7 @@ const MediaGalleryDialog = dynamic(
   { ssr: false }
 )
 import { uploadSingle, deleteMedia } from "@/lib/uploadApi"
+import { compressImageBeforeUpload } from "@/lib/imageCompression"
 
 const ALLOWED_RASTER_MIME = new Set([
   "image/jpeg",
@@ -77,7 +78,8 @@ export function ImageUpload({
     setProgress(5)
 
     try {
-      const result = await uploadSingle(file, (pct) => setProgress(pct), { folder })
+      const optimizedFile = await compressImageBeforeUpload(file)
+      const result = await uploadSingle(optimizedFile, (pct) => setProgress(pct), { folder })
       setProgress(100)
       onChange?.(result.url, result)
       toast.success("Image compressed to WebP and uploaded to Cloudflare R2")

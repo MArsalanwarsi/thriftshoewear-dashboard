@@ -32,13 +32,6 @@ export function ApproveAccessModal({
   const [role, setRole] = React.useState("admin")
   const [reviewNotes, setReviewNotes] = React.useState("")
 
-  React.useEffect(() => {
-    if (user) {
-      setRole("admin")
-      setReviewNotes("")
-    }
-  }, [user])
-
   if (!user) return null
 
   const applicantName =

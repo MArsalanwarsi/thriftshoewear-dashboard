@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Provider, useDispatch, useSelector } from "react-redux"
+import { useEffect, useSyncExternalStore } from "react"
+import { Provider, useDispatch } from "react-redux"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { store } from "@/store/store"
 import { fetchMe, hydrateAuth, logout } from "@/store/authSlice"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
+import { installGlobalTelemetry } from "@/lib/telemetry"
 
 function AuthBootstrap({ children }) {
   const dispatch = useDispatch()
@@ -15,6 +16,7 @@ function AuthBootstrap({ children }) {
   useEffect(() => {
     dispatch(hydrateAuth())
     dispatch(fetchMe())
+    return installGlobalTelemetry("dashboard")
   }, [dispatch])
 
   useEffect(() => {
@@ -45,17 +47,16 @@ function AuthBootstrap({ children }) {
   return children
 }
 
+const emptySubscribe = () => () => {}
+
 function VercelTelemetry() {
-  const [enabled, setEnabled] = useState(false)
+  const isProdBrowser = useSyncExternalStore(
+    emptySubscribe,
+    () => window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1",
+    () => false,
+  )
 
-  useEffect(() => {
-    const host = window.location.hostname
-    if (host !== "localhost" && host !== "127.0.0.1") {
-      setEnabled(true)
-    }
-  }, [])
-
-  if (!enabled) return null
+  if (!isProdBrowser) return null
 
   return (
     <>
@@ -68,7 +69,7 @@ function VercelTelemetry() {
 export function Providers({ children }) {
   return (
     <Provider store={store}>
-      <ThemeProvider defaultTheme="system" storageKey="tsw-dashboard-theme">
+      <ThemeProvider>
         <AuthBootstrap>{children}</AuthBootstrap>
         <Toaster position="bottom-right" richColors closeButton />
         <VercelTelemetry />

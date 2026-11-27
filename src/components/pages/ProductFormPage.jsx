@@ -99,7 +99,7 @@ export default function ProductFormPage() {
     tags: "",
     isFeatured: false,
     isNewArrival: true,
-    isBestSeller: false,
+    onSale: false,
     // Attributes
     sizeSystem: "EU",
     closureType: "Laces",
@@ -163,7 +163,11 @@ export default function ProductFormPage() {
           tags: Array.isArray(product.tags) ? product.tags.join(", ") : "",
           isFeatured: Boolean(product.isFeatured),
           isNewArrival: Boolean(product.isNewArrival),
-          isBestSeller: Boolean(product.isBestSeller),
+          onSale: Boolean(
+            product.variants?.some(
+              (v) => v.salePrice !== null && v.salePrice !== undefined && Number(v.salePrice) > 0 && Number(v.salePrice) < Number(v.price)
+            )
+          ),
           sizeSystem: product.attributes?.shoe?.sizeSystem || "EU",
           closureType: product.attributes?.shoe?.closureType || "Laces",
           weight: product.shipping?.weight || 800,
@@ -286,6 +290,14 @@ export default function ProductFormPage() {
       if (Number(v.stock) < 0) return toast.error(`Stock cannot be negative for SKU: ${v.sku}`)
     }
 
+    if (form.onSale) {
+      const primaryPrice = Number(variants[0]?.price || 0)
+      const primarySale = Number(variants[0]?.salePrice || 0)
+      if (!primarySale || primarySale <= 0 || primarySale >= primaryPrice) {
+        return toast.error("Enter a valid Price After Sale lower than the Before Price")
+      }
+    }
+
     setSubmitting(true)
 
     // Build Payload conforming directly to thriftshoewear_backend
@@ -338,7 +350,7 @@ export default function ProductFormPage() {
       },
       isFeatured: Boolean(form.isFeatured),
       isNewArrival: Boolean(form.isNewArrival),
-      isBestSeller: Boolean(form.isBestSeller),
+      isBestSeller: false,
     }
 
     try {
@@ -628,14 +640,67 @@ export default function ProductFormPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label className="text-xs">Best Seller</Label>
-                        <p className="text-[11px] text-muted-foreground">Highlight high demand sneaker</p>
+                        <Label className="text-xs">On Sale</Label>
+                        <p className="text-[11px] text-muted-foreground">Apply discount to this 1-of-1 piece</p>
                       </div>
                       <Switch
-                        checked={form.isBestSeller}
-                        onCheckedChange={(checked) => updateField("isBestSeller", checked)}
+                        aria-label="Toggle product sale"
+                        checked={form.onSale}
+                        onCheckedChange={(checked) => {
+                          updateField("onSale", checked)
+                          if (!checked) {
+                            setVariants((prev) => prev.map((v) => ({ ...v, salePrice: "" })))
+                          }
+                        }}
                       />
                     </div>
+
+                    {form.onSale && (() => {
+                      const basePrice = Number(variants[0]?.price || 0)
+                      const salePrice = Number(variants[0]?.salePrice || 0)
+                      const hasValidSale = basePrice > 0 && salePrice > 0 && salePrice < basePrice
+                      const discountPct = hasValidSale
+                        ? Math.round(((basePrice - salePrice) / basePrice) * 100)
+                        : 0
+
+                      return (
+                        <div className="rounded-lg border bg-muted/30 p-3 space-y-2.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Before Price</span>
+                            <strong className="font-mono">
+                              {basePrice > 0 ? `Rs. ${basePrice.toLocaleString()}` : "Set regular price in Variants"}
+                            </strong>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="after-sale-price" className="text-xs">
+                              Price After Sale *
+                            </Label>
+                            <Input
+                              id="after-sale-price"
+                              type="number"
+                              min="0"
+                              placeholder="Enter discounted price"
+                              value={variants[0]?.salePrice ?? ""}
+                              onChange={(e) => updateVariant(0, "salePrice", e.target.value)}
+                              className="h-8 text-xs font-mono"
+                            />
+                          </div>
+                          {hasValidSale && (
+                            <div className="flex items-center justify-between rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1.5 text-emerald-700 dark:text-emerald-300">
+                              <span>
+                                After: <strong className="font-mono">Rs. {salePrice.toLocaleString()}</strong>
+                              </span>
+                              <span className="font-bold">{discountPct}% OFF</span>
+                            </div>
+                          )}
+                          {basePrice > 0 && variants[0]?.salePrice !== "" && salePrice >= basePrice && (
+                            <p className="text-[11px] text-destructive">
+                              After-sale price must be less than Before Price (Rs. {basePrice.toLocaleString()}).
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </CardContent>
               </Card>

@@ -33,6 +33,7 @@ const MediaGalleryDialog = dynamic(
   { ssr: false }
 )
 import { uploadMultiple, deleteMedia } from "@/lib/uploadApi"
+import { compressImageBeforeUpload } from "@/lib/imageCompression"
 
 const ALLOWED_RASTER_MIME = new Set([
   "image/jpeg",
@@ -102,7 +103,10 @@ export function ImageGalleryUpload({
     setProgress(10)
 
     try {
-      const res = await uploadMultiple(filesToUpload, (pct) => setProgress(pct), { folder })
+      const compressedFiles = await Promise.all(
+        filesToUpload.map((file) => compressImageBeforeUpload(file))
+      )
+      const res = await uploadMultiple(compressedFiles, (pct) => setProgress(pct), { folder })
       const uploadedFiles = res.files || []
 
       const newImages = uploadedFiles.map((file, idx) => ({

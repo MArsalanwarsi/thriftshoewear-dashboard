@@ -146,6 +146,20 @@ export async function apiRequest(path, options = {}) {
     const err = new Error(payload.message || `Request failed with ${response.status}`)
     err.status = response.status
     err.details = payload.details || null
+    if (typeof window !== "undefined" && !path.startsWith("/logs") && response.status >= 500) {
+      import("./telemetry.js")
+        .then(({ reportClientTelemetry }) => {
+          reportClientTelemetry({
+            source: "dashboard",
+            category: "error",
+            level: "error",
+            action: `DASHBOARD_API_${upperMethod}_${path.split("?")[0]}`,
+            statusCode: response.status,
+            message: err.message,
+          })
+        })
+        .catch(() => {})
+    }
     throw err
   }
 

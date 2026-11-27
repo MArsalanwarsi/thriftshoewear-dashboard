@@ -28,13 +28,7 @@ export function EditRoleModal({
   loading = false,
   isSuperAdmin = false,
 }) {
-  const [role, setRole] = React.useState("customer")
-
-  React.useEffect(() => {
-    if (user) {
-      setRole(user.role || "customer")
-    }
-  }, [user])
+  const [role, setRole] = React.useState(user?.role || "customer")
 
   if (!user) return null
 

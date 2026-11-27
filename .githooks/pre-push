@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+echo "[pre-push] Running thriftshoewear-dashboard lint, tests, and security suite before push..."
+npm run lint
+npm test
+npm run test:security

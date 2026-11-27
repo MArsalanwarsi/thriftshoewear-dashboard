@@ -4,12 +4,14 @@ import * as React from "react"
 import Link from "next/link"
 import { useSelector } from "react-redux"
 import {
+  Ban,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Copy,
   Eye,
   MoreHorizontal,
+  Power,
   RefreshCw,
   Search,
   Shield,
@@ -23,6 +25,16 @@ import { toast } from "sonner"
 import { apiRequest } from "@/lib/api"
 import { formatDate } from "@/lib/format"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -81,6 +93,7 @@ export default function UsersPage() {
   const [roleUser, setRoleUser] = React.useState(null)
   const [approveUser, setApproveUser] = React.useState(null)
   const [rejectUser, setRejectUser] = React.useState(null)
+  const [permanentDeleteUser, setPermanentDeleteUser] = React.useState(null)
   const [actionLoading, setActionLoading] = React.useState(false)
 
   // Debounce search input (300ms)
@@ -196,6 +209,41 @@ export default function UsersPage() {
     }
   }
 
+  const activeSuperAdminCount = React.useMemo(
+    () =>
+      users.filter((u) => u.role === "superAdmin" && u.status === "active" && !u.isDeleted).length,
+    [users]
+  )
+
+  const isSoleActiveSuperAdmin = (user) =>
+    user?.role === "superAdmin" &&
+    user?.status === "active" &&
+    !user?.isDeleted &&
+    activeSuperAdminCount <= 1
+
+  // Quick action: Activate / Inactivate / Block
+  const handleStatusChange = async (user, nextStatus) => {
+    if (!isSuperAdmin && user.role !== "customer") {
+      toast.error("Super Admin privileges required to change staff account status")
+      return
+    }
+    if (nextStatus !== "active" && isSoleActiveSuperAdmin(user)) {
+      toast.error("At least one active Super Admin account must remain active")
+      return
+    }
+    try {
+      await apiRequest(`/users/${user._id}`, {
+        method: "PATCH",
+        token,
+        body: { status: nextStatus },
+      })
+      toast.success(`Account status set to ${nextStatus} for ${user.displayName || user.email}`)
+      fetchUsers()
+    } catch (err) {
+      toast.error(err.message || "Failed to update account status")
+    }
+  }
+
   // Quick action: Soft Delete / Restore
   const handleToggleDelete = async (user) => {
     if (!isSuperAdmin) {
@@ -203,6 +251,10 @@ export default function UsersPage() {
       return
     }
     const isDeleting = !user.isDeleted && user.status !== "deleted"
+    if (isDeleting && isSoleActiveSuperAdmin(user)) {
+      toast.error("Cannot deactivate the last active Super Admin account")
+      return
+    }
     try {
       if (isDeleting) {
         await apiRequest(`/users/${user._id}`, { method: "DELETE", token })
@@ -214,6 +266,25 @@ export default function UsersPage() {
       fetchUsers()
     } catch (err) {
       toast.error(err.message || "Failed to update account status")
+    }
+  }
+
+  // Permanent deletion of entire user record (Super Admin only)
+  const handlePermanentDeleteConfirm = async () => {
+    if (!permanentDeleteUser) return
+    setActionLoading(true)
+    try {
+      await apiRequest(`/users/${permanentDeleteUser._id}?permanent=true`, {
+        method: "DELETE",
+        token,
+      })
+      toast.success(`Permanently deleted user ${permanentDeleteUser.displayName || permanentDeleteUser.email}`)
+      setPermanentDeleteUser(null)
+      fetchUsers()
+    } catch (err) {
+      toast.error(err.message || "Failed to permanently delete user")
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -543,13 +614,54 @@ export default function UsersPage() {
 
                           <DropdownMenuSeparator />
 
+                          {isSuperAdmin && !user.isDeleted && (
+                            <>
+                              {user.status !== "active" && (
+                                <DropdownMenuItem
+                                  onClick={() => handleStatusChange(user, "active")}
+                                  className="text-emerald-600 focus:text-emerald-700"
+                                >
+                                  <Power className="mr-2 size-4" /> Set Active
+                                </DropdownMenuItem>
+                              )}
+                              {user.status !== "inactive" && (
+                                <DropdownMenuItem
+                                  disabled={isSoleActiveSuperAdmin(user)}
+                                  onClick={() => handleStatusChange(user, "inactive")}
+                                >
+                                  <Power className="mr-2 size-4" /> Set Inactive
+                                </DropdownMenuItem>
+                              )}
+                              {user.status !== "blocked" && (
+                                <DropdownMenuItem
+                                  disabled={isSoleActiveSuperAdmin(user)}
+                                  onClick={() => handleStatusChange(user, "blocked")}
+                                  className="text-amber-600 focus:text-amber-700"
+                                >
+                                  <Ban className="mr-2 size-4" /> Block User
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+
                           <DropdownMenuItem
+                            disabled={!user.isDeleted && isSoleActiveSuperAdmin(user)}
                             onClick={() => handleToggleDelete(user)}
                             className={user.isDeleted ? "text-emerald-600" : "text-destructive"}
                           >
                             <Trash2 className="mr-2 size-4" />
                             {user.isDeleted ? "Restore User" : "Deactivate User"}
                           </DropdownMenuItem>
+
+                          {isSuperAdmin && !isSoleActiveSuperAdmin(user) && (
+                            <DropdownMenuItem
+                              onClick={() => setPermanentDeleteUser(user)}
+                              className="text-destructive font-medium focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 size-4" /> Delete Entire User
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -599,6 +711,7 @@ export default function UsersPage() {
       />
 
       <EditRoleModal
+        key={`role-${roleUser?._id || "none"}`}
         user={roleUser}
         open={Boolean(roleUser)}
         onOpenChange={(open) => !open && setRoleUser(null)}
@@ -608,6 +721,7 @@ export default function UsersPage() {
       />
 
       <ApproveAccessModal
+        key={`approve-${approveUser?._id || "none"}`}
         user={approveUser}
         open={Boolean(approveUser)}
         onOpenChange={(open) => !open && setApproveUser(null)}
@@ -617,6 +731,7 @@ export default function UsersPage() {
       />
 
       <RejectAccessModal
+        key={`reject-${rejectUser?._id || "none"}`}
         user={rejectUser}
         open={Boolean(rejectUser)}
         onOpenChange={(open) => !open && setRejectUser(null)}
@@ -624,6 +739,31 @@ export default function UsersPage() {
         loading={actionLoading}
         isSuperAdmin={isSuperAdmin}
       />
+
+      <AlertDialog
+        open={Boolean(permanentDeleteUser)}
+        onOpenChange={(open) => !open && setPermanentDeleteUser(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Entire User Account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes <strong>{permanentDeleteUser?.displayName || permanentDeleteUser?.email}</strong>{" "}
+              along with their cart and wishlist data from MongoDB. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={actionLoading}
+              onClick={handlePermanentDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {actionLoading ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

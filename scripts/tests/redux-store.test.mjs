@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { store } from "../../src/store/store.js"
 import { hydrateAuth, fetchMe, loginUser, logout, clearAuthError } from "../../src/store/authSlice.js"
+import { hydrateTheme, setTheme, toggleTheme } from "../../src/store/themeSlice.js"
 import { clearMutation } from "../../src/store/adminSlice.js"
 
 test("Redux store initializes deterministically in SSR without crashing on localStorage", () => {
@@ -9,7 +10,19 @@ test("Redux store initializes deterministically in SSR without crashing on local
   assert.equal(state.auth.hydrated, false)
   assert.equal(state.auth.token, null)
   assert.equal(state.auth.user, null)
+  assert.equal(state.theme.mode, "light")
   assert.ok(state.admin.resources.products)
+})
+
+test("Redux themeSlice switches directly between light and dark themes cleanly", () => {
+  store.dispatch(setTheme("light"))
+  assert.equal(store.getState().theme.mode, "light")
+  store.dispatch(toggleTheme())
+  assert.equal(store.getState().theme.mode, "dark")
+  store.dispatch(toggleTheme())
+  assert.equal(store.getState().theme.mode, "light")
+  store.dispatch(hydrateTheme())
+  assert.equal(store.getState().theme.hydrated, true)
 })
 
 test("authSlice keeps session strictly in memory, purges legacy storage, and enforces admin RBAC", async () => {

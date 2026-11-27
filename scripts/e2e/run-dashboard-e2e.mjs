@@ -545,7 +545,7 @@ async function runInteractiveSuite(browser, featureStateRef) {
     throw new Error(`Expected ERR_POST_ORDERS and location on /logs (url=${superPage.url()}). Page text:\n${logsText.slice(0, 600)}`)
   }
   await superPage.getByText("ERR_POST_ORDERS").waitFor()
-  await superPage.locator("tbody tr").first().getByRole("button").click()
+  await superPage.getByRole("button", { name: /Inspect log ERR_POST_ORDERS/i }).first().click()
   await superPage.getByText("Simulated payment gateway timeout", { exact: true }).waitFor()
   await superPage.getByText("req-e2e-001").waitFor()
   await superPage.getByText("[REDACTED]").waitFor()

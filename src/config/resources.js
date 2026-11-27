@@ -67,7 +67,7 @@ export const RESOURCE_CONFIG = {
       { key: "category", label: "Category", value: (item) => item.category?.name || "Unassigned" },
       { key: "price", label: "Price", value: (item) => formatCurrency(item.priceRange?.minSalePrice || item.priceRange?.minPrice) },
       { key: "stock", label: "Stock", value: (item) => item.stockSummary?.availableStock ?? 0 },
-      { key: "flags", label: "Flags", value: (item) => [item.isFeatured && "Featured", item.isNewArrival && "New", item.isBestSeller && "Best"].filter(Boolean).join(", ") || "None" },
+      { key: "flags", label: "Flags", value: (item) => [item.isFeatured && "Featured", item.isNewArrival && "New", item.priceRange?.minSalePrice && "Sale"].filter(Boolean).join(", ") || "None" },
       { key: "status", label: "Status", value: (item) => item.status, badge: true },
     ],
     fields: [
@@ -118,7 +118,6 @@ export const RESOURCE_CONFIG = {
       },
       { name: "isFeatured", label: "Featured", type: "switch" },
       { name: "isNewArrival", label: "New arrival", type: "switch" },
-      { name: "isBestSeller", label: "Best seller", type: "switch" },
     ],
     buildPayload: (form, mode, selected) => {
       let variantsList = []
@@ -167,7 +166,6 @@ export const RESOURCE_CONFIG = {
         variants: variantsList,
         isFeatured: booleanValue(form.isFeatured),
         isNewArrival: booleanValue(form.isNewArrival),
-        isBestSeller: booleanValue(form.isBestSeller),
       }
     },
   },

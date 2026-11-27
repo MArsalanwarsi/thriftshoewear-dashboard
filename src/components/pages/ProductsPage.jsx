@@ -186,7 +186,7 @@ export default function ProductsPage() {
     statusFilter !== "__all" ||
     productTypeFilter !== "__all"
 
-  // Quick flag toggle (Featured, New Arrival, Best Seller)
+  // Quick flag toggle (Featured, New Arrival)
   const handleToggleFlag = async (product, flagName) => {
     const nextVal = !product[flagName]
     try {
@@ -528,18 +528,6 @@ export default function ProductsPage() {
                             title="Toggle New Arrival"
                           >
                             New
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleFlag(product, "isBestSeller")}
-                            className={`cursor-pointer rounded-xs px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
-                              product.isBestSeller
-                                ? "bg-amber-500 text-white"
-                                : "bg-muted text-muted-foreground hover:bg-muted/80"
-                            }`}
-                            title="Toggle Best Seller"
-                          >
-                            Best
                           </button>
                         </div>
                       </TableCell>
