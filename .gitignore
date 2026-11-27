@@ -9,6 +9,8 @@ dist/
 dist-ssr/
 build/
 artifacts/
+public/sw*
+public/swe-worker*
 
 # Vite and tool caches
 .vite/

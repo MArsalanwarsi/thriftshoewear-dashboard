@@ -33,6 +33,7 @@
     "@radix-ui/react-tabs": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.4.1",
     "@reduxjs/toolkit": "^2.15.0",
+    "@serwist/next": "^9.6.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.1.1",
     "class-variance-authority": "^0.7.1",
@@ -50,9 +51,11 @@
     "@tailwindcss/postcss": "^4.3.5",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@vercel/og": "^1.0.3",
     "oxlint": "^1.95.0",
     "playwright": "^1.65.1",
     "postcss": "^8.5.33",
+    "serwist": "^9.6.0",
     "tailwindcss": "^4.3.5"
   },
   "allowScripts": {

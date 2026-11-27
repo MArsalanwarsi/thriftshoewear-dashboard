@@ -46,7 +46,10 @@ test("Dashboard Bundle Gate: production Next.js build emits split chunks under 5
     "/(dashboard)/logs/page",
     "/(dashboard)/features/page",
     "/(auth)/login/page",
+    "/(standalone)/~offline/page",
+    "/api/og/route",
   ]) {
     assert.ok(appPaths[expected], `Missing compiled App Router handler for ${expected}`)
   }
+  assert.ok(fs.existsSync(path.join(projectRoot, "public", "sw.js")), "Expected compiled Serwist public/sw.js")
 })

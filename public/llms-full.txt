@@ -1,0 +1,14 @@
+# Thrift Shoe Wear Admin Portal — Technical Architecture & Operations Spec
+
+> Built with Next.js 16 App Router, React 19, Tailwind CSS v4, Redux Toolkit, and Serwist Offline-First PWA caching.
+
+## Architecture Overview
+- Framework: Next.js App Router (`next build --webpack`) with split vendor chunks (`framework`, `redux-vendor`, `radix-ui-vendor`, `recharts-vendor`, `icons-vendor`) under 500 KiB.
+- Authentication & RBAC: Token-verified sessions distinguishing standard `admin` operations from `superAdmin` security governance.
+- Offline-First Resiliency: `@serwist/next` Service Worker (`sw.js`) caches App Router navigations, API read responses (`NetworkFirst`), and product media (`CacheFirst` up to 150 images / 7 days) while gating mutations until network connectivity returns.
+- Super Admin Governance: Immutable action/error/security audit logs (`/logs`) and password-locked live capability toggles (`/features`) controlling shopping cart, wishlist, checkout, sales, coupons, reviews, order tracking, registration, newsletter, and search.
+
+## Links
+- [Dashboard Portal](https://thriftshoewear-dashboard.vercel.app/)
+- [Login](https://thriftshoewear-dashboard.vercel.app/login)
+- [Storefront](https://thriftshoewear.com)

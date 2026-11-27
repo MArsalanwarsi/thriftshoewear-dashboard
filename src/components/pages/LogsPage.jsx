@@ -300,7 +300,12 @@ export default function LogsPage() {
                     </TableCell>
                     <TableCell className="font-mono text-xs">{entry.statusCode ?? "—"}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedLog(entry)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Inspect log ${entry.action || entry._id}`}
+                        onClick={() => setSelectedLog(entry)}
+                      >
                         <Eye className="size-4" />
                       </Button>
                     </TableCell>

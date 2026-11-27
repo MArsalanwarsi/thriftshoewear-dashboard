@@ -1,3 +1,25 @@
+import withSerwistInit from "@serwist/next"
+
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.js",
+  swDest: "public/sw.js",
+  cacheOnNavigation: true,
+  reloadOnOnline: false,
+  disable: process.env.NODE_ENV === "development",
+  additionalPrecacheEntries: [{ url: "/~offline", revision: "v1" }],
+  manifestTransforms: [
+    async (manifestEntries) => {
+      const unique = new Map()
+      for (const entry of manifestEntries) {
+        if (!unique.has(entry.url)) {
+          unique.set(entry.url, entry)
+        }
+      }
+      return { manifest: Array.from(unique.values()), warnings: [] }
+    },
+  ],
+})
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -25,7 +47,7 @@ const nextConfig = {
   },
   webpack(config, options = {}) {
     if (!options.isServer) {
-      config.optimization = config.optimization || {};
+      config.optimization = config.optimization || {}
       config.optimization.splitChunks = {
         chunks: "all",
         maxInitialRequests: 25,
@@ -68,10 +90,10 @@ const nextConfig = {
             reuseExistingChunk: true,
           },
         },
-      };
+      }
     }
-    return config;
+    return config
   },
-};
+}
 
-export default nextConfig;
+export default withSerwist(nextConfig)

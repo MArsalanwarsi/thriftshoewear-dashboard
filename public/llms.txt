@@ -1,0 +1,10 @@
+# Thrift Shoe Wear Admin Portal
+
+> Operations, catalog, order settlement, audit log, and feature governance platform for Thrift Shoe Wear (`https://thriftshoewear.com`).
+
+## Core Capabilities
+
+- [Operations Overview](https://thriftshoewear-dashboard.vercel.app/): Real-time revenue KPIs, order settlement metrics, and popular thrift sneaker analytics.
+- [Admin Sign In](https://thriftshoewear-dashboard.vercel.app/login): Role-based authentication portal for approved staff (`admin` and `superAdmin`).
+- [Request Staff Access](https://thriftshoewear-dashboard.vercel.app/register): Onboarding workflow for new operations team members requiring Super Admin approval.
+- [Storefront Website](https://thriftshoewear.com): Customer-facing Next.js 16 e-commerce storefront for 1-of-1 authenticated thrift footwear, bags, and jewelry.

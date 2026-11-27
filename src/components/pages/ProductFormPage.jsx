@@ -378,7 +378,7 @@ export default function ProductFormPage() {
       {/* Top Bar with Navigation & Submit Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => router.push("/products")}>
+          <Button variant="outline" size="icon" aria-label="Back to products" onClick={() => router.push("/products")}>
             <ArrowLeft className="size-4" />
           </Button>
           <div>

@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select"
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs"
 import { Badge } from "./ui/badge"
 import { formatCurrency } from "../lib/format"
 
@@ -262,37 +261,61 @@ export function AnalyticsChart({
 
         <CardAction className="flex flex-wrap items-center gap-2">
           {/* Metric Toggle: Revenue vs Orders */}
-          <Tabs value={metric} onValueChange={setMetric}>
-            <TabsList className="h-8">
-              <TabsTrigger value="revenue" className="text-xs">
-                Revenue
-              </TabsTrigger>
-              <TabsTrigger value="orders" className="text-xs">
-                Orders
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div
+            role="group"
+            aria-label="Chart metric view"
+            className="inline-flex h-8 items-center rounded-lg bg-muted p-0.5 text-muted-foreground"
+          >
+            {[
+              { id: "revenue", label: "Revenue" },
+              { id: "orders", label: "Orders" },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                aria-pressed={metric === opt.id}
+                onClick={() => setMetric(opt.id)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                  metric === opt.id
+                    ? "bg-background text-foreground shadow-xs"
+                    : "hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
 
-          {/* Time Range Selector: Desktop Tabs vs Mobile Select */}
-          <div className="hidden @[640px]/card:block">
-            <Tabs value={timeRange} onValueChange={setTimeRange}>
-              <TabsList className="h-8">
-                <TabsTrigger value="7d" className="text-xs">
-                  7 Days
-                </TabsTrigger>
-                <TabsTrigger value="30d" className="text-xs">
-                  30 Days
-                </TabsTrigger>
-                <TabsTrigger value="90d" className="text-xs">
-                  90 Days
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+          {/* Time Range Selector: Desktop Buttons vs Mobile Select */}
+          <div
+            role="group"
+            aria-label="Timeframe filter"
+            className="hidden @[640px]/card:inline-flex h-8 items-center rounded-lg bg-muted p-0.5 text-muted-foreground"
+          >
+            {[
+              { id: "7d", label: "7 Days" },
+              { id: "30d", label: "30 Days" },
+              { id: "90d", label: "90 Days" },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                aria-pressed={timeRange === opt.id}
+                onClick={() => setTimeRange(opt.id)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                  timeRange === opt.id
+                    ? "bg-background text-foreground shadow-xs"
+                    : "hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
 
           <div className="block @[640px]/card:hidden">
             <Select value={timeRange} onValueChange={setTimeRange}>
-              <SelectTrigger className="h-8 w-28 text-xs">
+              <SelectTrigger aria-label="Select chart time range" className="h-8 w-28 text-xs">
                 <SelectValue placeholder="Range" />
               </SelectTrigger>
               <SelectContent>

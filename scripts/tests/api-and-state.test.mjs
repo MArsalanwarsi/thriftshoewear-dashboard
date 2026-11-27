@@ -39,3 +39,16 @@ test("apiRequest serializes query params, bearer token, and handles 401 storage 
     globalThis.fetch = originalFetch
   }
 })
+
+test("apiRequest blocks mutating requests when offline while permitting GET requests", async () => {
+  const prevOnLine = globalThis.navigator.onLine
+  Object.defineProperty(globalThis.navigator, "onLine", { value: false, configurable: true })
+  try {
+    await assert.rejects(
+      () => apiRequest("/orders", { method: "POST", body: { status: "confirmed" } }),
+      (err) => err.code === "OFFLINE_MUTATION_BLOCKED" && err.status === 503
+    )
+  } finally {
+    Object.defineProperty(globalThis.navigator, "onLine", { value: prevOnLine, configurable: true })
+  }
+})

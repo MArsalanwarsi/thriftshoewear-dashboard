@@ -11,6 +11,22 @@ const appendQuery = (url, params = {}) => {
 
 export async function apiRequest(path, options = {}) {
   const { method = "GET", body, token, params } = options
+  const upperMethod = String(method).toUpperCase()
+
+  if (
+    upperMethod !== "GET" &&
+    upperMethod !== "HEAD" &&
+    typeof navigator !== "undefined" &&
+    navigator.onLine === false
+  ) {
+    const offlineErr = new Error(
+      "You are offline. Cached views remain browsable, while changes are paused until connection returns."
+    )
+    offlineErr.status = 503
+    offlineErr.code = "OFFLINE_MUTATION_BLOCKED"
+    throw offlineErr
+  }
+
   const url = new URL(`${API_BASE_URL}${path}`)
   appendQuery(url, params)
 
@@ -22,7 +38,7 @@ export async function apiRequest(path, options = {}) {
   if (token) headers.Authorization = `Bearer ${token}`
 
   const response = await fetch(url, {
-    method,
+    method: upperMethod,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })

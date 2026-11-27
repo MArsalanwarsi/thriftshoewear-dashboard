@@ -6,6 +6,7 @@ const projectRootUrl = new URL("../../", import.meta.url)
 const mockNextLinkUrl = new URL("./__mock_next_link__.mjs", import.meta.url).href
 const mockNextNavUrl = new URL("./__mock_next_navigation__.mjs", import.meta.url).href
 const mockNextImageUrl = new URL("./__mock_next_image__.mjs", import.meta.url).href
+const mockNextDynamicUrl = new URL("./__mock_next_dynamic__.mjs", import.meta.url).href
 const mockNextFontGoogleUrl = new URL("./__mock_next_font_google__.mjs", import.meta.url).href
 
 export async function resolve(specifier, context, nextResolve) {
@@ -17,6 +18,9 @@ export async function resolve(specifier, context, nextResolve) {
   }
   if (specifier === "next/image") {
     return { url: mockNextImageUrl, shortCircuit: true }
+  }
+  if (specifier === "next/dynamic") {
+    return { url: mockNextDynamicUrl, shortCircuit: true }
   }
   if (specifier === "next/font/google") {
     return { url: mockNextFontGoogleUrl, shortCircuit: true }
@@ -85,6 +89,20 @@ export function useParams() { return {}; }`,
 export default function MockNextImage({ src, alt = '', ...rest }) {
   const resolved = typeof src === 'string' ? src : (src?.src || '');
   return React.createElement('img', { src: resolved, alt, ...rest });
+}`,
+    }
+  }
+
+  if (url === mockNextDynamicUrl) {
+    return {
+      format: "module",
+      shortCircuit: true,
+      source: `import React from 'react';
+export default function mockDynamic(importer, options = {}) {
+  return function MockDynamic(props) {
+    if (options?.loading) return React.createElement(options.loading);
+    return null;
+  };
 }`,
     }
   }

@@ -210,15 +210,22 @@ async function main() {
       })
     }
 
-    // 1. Login page smoke & unauthenticated protection
+    // 1. Login page & SEO/PWA endpoints smoke check
     const guestCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const guestPage = await guestCtx.newPage()
     const runtimeErrors = []
     guestPage.on("pageerror", (err) => runtimeErrors.push(err.message))
     await guestPage.goto(`${BASE_URL}/login`, { waitUntil: "networkidle" })
     await guestPage.getByText("Admin login").waitFor()
+
+    for (const staticPath of ["/robots.txt", "/sitemap.xml", "/llms.txt", "/manifest.webmanifest", "/~offline", "/sw.js"]) {
+      const resp = await guestCtx.request.get(`${BASE_URL}${staticPath}`)
+      if (!resp.ok()) {
+        throw new Error(`Expected ${staticPath} to return HTTP 200, got ${resp.status()}`)
+      }
+    }
     await guestCtx.close()
-    console.log("PASS  Login route renders cleanly on App Router")
+    console.log("PASS  Login route + SEO/GEO (/robots.txt, /sitemap.xml, /llms.txt) + PWA (/sw.js, /manifest.webmanifest, /~offline) verified")
 
     // 2. Regular Admin isolation
     const adminUser = { _id: "a1", role: "admin", email: "admin@thrift.com", firstName: "Staff" }
@@ -252,6 +259,22 @@ async function main() {
 
     await superPage.goto(`${BASE_URL}/logs`, { waitUntil: "networkidle" })
     await superPage.getByText("Audit & Error Logs").waitFor()
+
+    // Check DOM Accessibility hygiene (zero broken aria-controls & zero unlabeled visible buttons)
+    const a11yAudit = await superPage.evaluate(() => {
+      const brokenAria = [...document.querySelectorAll("[aria-controls]")].filter((el) => {
+        const id = el.getAttribute("aria-controls")
+        return id && !document.getElementById(id)
+      })
+      const badButtons = [...document.querySelectorAll("button")].filter((b) => {
+        const label = (b.innerText || b.textContent || "").trim() || b.getAttribute("aria-label") || b.getAttribute("title") || ""
+        return label.length === 0
+      })
+      return { brokenAriaCount: brokenAria.length, badButtonCount: badButtons.length }
+    })
+    if (a11yAudit.brokenAriaCount > 0 || a11yAudit.badButtonCount > 0) {
+      throw new Error(`Accessibility check failed: ${JSON.stringify(a11yAudit)}`)
+    }
     await superPage.getByText("ERR_POST_ORDERS").waitFor()
     // Open log detail modal
     await superPage.locator("tbody tr").first().getByRole("button").click()

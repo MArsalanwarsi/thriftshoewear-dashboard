@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import {
   ArrowUpRight,
   Boxes,
@@ -10,7 +11,6 @@ import {
   CreditCard,
   DollarSign,
   Layers,
-  Loader2,
   Plus,
   RefreshCw,
   ShoppingBag,
@@ -29,8 +29,17 @@ import { fetchDashboard } from "@/store/adminSlice"
 import { apiRequest } from "@/lib/api"
 import { formatCurrency, formatDate } from "@/lib/format"
 import StatusBadge from "@/components/StatusBadge"
-import AnalyticsChart from "@/components/analytics-chart"
-import { MediaGalleryDialog } from "@/components/common/MediaGalleryDialog"
+import { SafeImage } from "@/components/ui/safe-image"
+
+const AnalyticsChart = dynamic(() => import("@/components/analytics-chart"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[380px] w-full rounded-xl" />,
+})
+
+const MediaGalleryDialog = dynamic(
+  () => import("@/components/common/MediaGalleryDialog").then((m) => m.MediaGalleryDialog),
+  { ssr: false }
+)
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -203,10 +212,14 @@ export default function OverviewPage() {
   const token = useSelector((state) => state.auth.token)
   const { data, status, error } = useSelector((state) => state.admin.dashboard)
 
-  const [lastRefreshed, setLastRefreshed] = useState(() => new Date())
+  const [lastRefreshed, setLastRefreshed] = useState(null)
   const [recentOrders, setRecentOrders] = useState([])
   const [recentOrdersLoading, setRecentOrdersLoading] = useState(false)
   const [galleryOpen, setGalleryOpen] = useState(false)
+
+  useEffect(() => {
+    setLastRefreshed(new Date())
+  }, [])
 
   // Fetch recent orders directly from REST API
   const fetchRecentOrders = useCallback(async () => {
@@ -248,69 +261,7 @@ export default function OverviewPage() {
     return () => clearInterval(interval)
   }, [dispatch, fetchRecentOrders])
 
-  // Skeleton Loading State preserving exact B9.5 test assertions
-  if (status === "loading" && !data) {
-    return (
-      <div className="space-y-6">
-        <div className="flex h-10 items-center text-sm text-muted-foreground">
-          <Loader2 className="mr-2 size-4 animate-spin" />
-          <span>Loading dashboard analytics...</span>
-        </div>
-
-        {/* 7 KPI Skeletons */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <Card key={i} className="@container/card">
-              <CardHeader className="gap-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-32" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-3 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Quick Actions Skeleton */}
-        <div className="flex gap-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-9 w-28 rounded-md" />
-          ))}
-        </div>
-
-        {/* Tables Skeleton */}
-        <div className="grid gap-6 xl:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-36" />
-              <Skeleton className="h-4 w-60" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-36" />
-              <Skeleton className="h-4 w-60" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
+  const isInitialLoading = status === "loading" && !data
 
   const {
     products,
@@ -334,7 +285,6 @@ export default function OverviewPage() {
             <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
             <Badge variant="outline" className="gap-1.5 py-0.5 text-xs font-normal">
               <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
               </span>
               Live (30s poll)
@@ -346,8 +296,12 @@ export default function OverviewPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            Updated {lastRefreshed.toLocaleTimeString()}
+          <span className="text-xs text-muted-foreground min-w-[110px] text-right">
+            {isInitialLoading
+              ? "Loading metrics..."
+              : lastRefreshed
+                ? `Updated ${lastRefreshed.toLocaleTimeString()}`
+                : "Updated"}
           </span>
           <Button
             type="button"
@@ -732,9 +686,12 @@ export default function OverviewPage() {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             {primaryImage ? (
-                              <img
+                              <SafeImage
                                 src={primaryImage}
-                                alt={product.name}
+                                alt={product.name || "Product thumbnail"}
+                                width={36}
+                                height={36}
+                                sizes="36px"
                                 className="size-9 rounded-md object-cover border"
                               />
                             ) : (

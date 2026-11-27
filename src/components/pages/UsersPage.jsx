@@ -467,6 +467,7 @@ export default function UsersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label={`Copy email for ${user.email}`}
                           className="size-6 text-muted-foreground hover:text-foreground"
                           onClick={() => {
                             navigator.clipboard.writeText(user.email)

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { toast } from "sonner"
 import {
   FolderOpen,
@@ -22,7 +23,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { MediaGalleryDialog } from "./MediaGalleryDialog"
+const MediaGalleryDialog = dynamic(
+  () => import("./MediaGalleryDialog").then((m) => m.MediaGalleryDialog),
+  { ssr: false }
+)
 import { uploadSingle, deleteMedia } from "@/lib/uploadApi"
 
 const ALLOWED_RASTER_MIME = new Set([
