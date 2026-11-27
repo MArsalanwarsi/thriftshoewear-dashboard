@@ -1,41 +1,10 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
-import { apiRequest } from "../lib/api"
-
-const readStorage = (key) => {
-  if (typeof window === "undefined") return null
-  try {
-    return window.localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-const writeStorage = (key, value) => {
-  if (typeof window === "undefined") return
-  try {
-    window.localStorage.setItem(key, value)
-  } catch {
-    // Ignore storage quota errors cleanly
-  }
-}
-
-const removeStorage = (key) => {
-  if (typeof window === "undefined") return
-  try {
-    window.localStorage.removeItem(key)
-  } catch {
-    // Ignore storage removal errors cleanly
-  }
-}
-
-const parseStoredUser = (raw = readStorage("dashboardUser")) => {
-  if (!raw) return null
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
+import {
+  apiRequest,
+  broadcastAuthEvent,
+  purgeLegacyAuthStorage,
+  setInMemoryCsrfToken,
+} from "../lib/api"
 
 const assertAdmin = (user) => {
   if (user?.role !== "admin" && user?.role !== "superAdmin") {
@@ -52,18 +21,40 @@ export const loginUser = createAsyncThunk("auth/login", async (credentials) => {
   const user = response.data?.user || response.user
   assertAdmin(user)
 
+  if (response.data?.csrfToken) {
+    setInMemoryCsrfToken(response.data.csrfToken)
+  }
+
   return {
-    token: response.data?.token || response.token,
+    token: response.data?.token || response.token || "cookie-session",
     user,
   }
 })
 
 export const fetchMe = createAsyncThunk("auth/me", async (_, { getState }) => {
-  const token = getState().auth.token
-  const response = await apiRequest("/auth/me", { token })
+  const currentToken = getState().auth.token
+  const response = await apiRequest("/auth/me", {
+    token: currentToken && currentToken !== "cookie-session" ? currentToken : undefined,
+  })
   const user = response.data?.user || response.user
   assertAdmin(user)
-  return user
+  return {
+    user,
+    token: currentToken || "cookie-session",
+  }
+})
+
+export const logoutRemote = createAsyncThunk("auth/logoutRemote", async () => {
+  try {
+    await apiRequest("/auth/logout", { method: "POST" })
+  } catch {
+    // Clear local in-memory state even if offline
+  } finally {
+    purgeLegacyAuthStorage()
+    setInMemoryCsrfToken("")
+    broadcastAuthEvent("logout")
+  }
+  return null
 })
 
 export const registerDashboardUser = createAsyncThunk(
@@ -108,10 +99,8 @@ const authSlice = createSlice({
     message: null,
   },
   reducers: {
-    hydrateAuth(state) {
-      state.token = readStorage("dashboardToken")
-      state.user = parseStoredUser()
-      state.hydrated = true
+    hydrateAuth() {
+      purgeLegacyAuthStorage()
     },
     logout(state) {
       state.token = null
@@ -120,8 +109,9 @@ const authSlice = createSlice({
       state.status = "idle"
       state.error = null
       state.message = null
-      removeStorage("dashboardToken")
-      removeStorage("dashboardUser")
+      purgeLegacyAuthStorage()
+      setInMemoryCsrfToken("")
+      broadcastAuthEvent("logout")
     },
     clearAuthError(state) {
       state.error = null
@@ -140,8 +130,8 @@ const authSlice = createSlice({
         state.hydrated = true
         state.token = action.payload.token
         state.user = action.payload.user
-        writeStorage("dashboardToken", action.payload.token)
-        writeStorage("dashboardUser", JSON.stringify(action.payload.user))
+        purgeLegacyAuthStorage()
+        broadcastAuthEvent("login")
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = "failed"
@@ -149,15 +139,22 @@ const authSlice = createSlice({
       })
       .addCase(fetchMe.fulfilled, (state, action) => {
         state.hydrated = true
-        state.user = action.payload
-        writeStorage("dashboardUser", JSON.stringify(action.payload))
+        state.token = action.payload.token
+        state.user = action.payload.user
       })
       .addCase(fetchMe.rejected, (state) => {
         state.hydrated = true
         state.token = null
         state.user = null
-        removeStorage("dashboardToken")
-        removeStorage("dashboardUser")
+        purgeLegacyAuthStorage()
+      })
+      .addCase(logoutRemote.fulfilled, (state) => {
+        state.token = null
+        state.user = null
+        state.hydrated = true
+        state.status = "idle"
+        state.error = null
+        state.message = null
       })
       .addMatcher(
         (action) =>

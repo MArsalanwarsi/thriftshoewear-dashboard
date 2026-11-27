@@ -1,5 +1,17 @@
 import { defaultCache } from "@serwist/next/worker";
-import { Serwist, NetworkFirst, CacheFirst, ExpirationPlugin } from "serwist";
+import { Serwist, NetworkFirst, NetworkOnly, CacheFirst, ExpirationPlugin } from "serwist";
+
+const SENSITIVE_API_SEGMENTS = [
+  "/auth",
+  "/logs",
+  "/users",
+  "/orders",
+  "/payments",
+  "/upload",
+];
+
+const isSensitiveApiPath = (pathname = "") =>
+  SENSITIVE_API_SEGMENTS.some((segment) => pathname.includes(segment));
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
@@ -7,17 +19,25 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
-    // Backend Product, Category, Order & Feature API GET requests -> NetworkFirst with offline cache fallback
+    // Sensitive auth, PII, audit logs & financial APIs must NEVER be stored in browser CacheStorage
+    {
+      matcher: ({ url, request }) =>
+        (url.pathname.startsWith("/api/") || url.hostname.includes("thriftshoewear-backend")) &&
+        (request.method !== "GET" || isSensitiveApiPath(url.pathname)),
+      handler: new NetworkOnly(),
+    },
+    // Non-sensitive Product, Category & Feature Catalog GET requests -> NetworkFirst with offline cache fallback
     {
       matcher: ({ url, request }) =>
         request.method === "GET" &&
+        !isSensitiveApiPath(url.pathname) &&
         (url.pathname.startsWith("/api/") || url.hostname.includes("thriftshoewear-backend")),
       handler: new NetworkFirst({
-        cacheName: "tsw-admin-api-cache-v1",
+        cacheName: "tsw-admin-catalog-cache-v2",
         networkTimeoutSeconds: 5,
         plugins: [
           new ExpirationPlugin({
-            maxEntries: 100,
+            maxEntries: 80,
             maxAgeSeconds: 24 * 60 * 60,
           }),
         ],

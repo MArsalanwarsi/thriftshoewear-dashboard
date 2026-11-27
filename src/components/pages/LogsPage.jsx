@@ -58,6 +58,35 @@ const CATEGORY_BADGE_MAP = {
   security: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
 }
 
+function formatLogLocation(entry) {
+  const loc = entry?.location || {}
+  const parts = [loc.city, loc.region, loc.country].filter(Boolean)
+  if (parts.length > 0) return parts.join(", ")
+  if (loc.source === "local-network") return "Localhost / LAN"
+  return "Unknown"
+}
+
+function formatLogTime(entry) {
+  const iso = entry?.occurredAt || entry?.createdAt
+  if (!iso) return { date: "N/A", time: "" }
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return { date: formatDate(iso), time: "" }
+  return {
+    date: formatDate(iso),
+    time: parsed.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }),
+  }
+}
+
+function formatSystemSummary(entry) {
+  const sys = entry?.systemConfig || {}
+  const client = [sys.os, sys.browser].filter((v) => v && v !== "Unknown").join(" · ")
+  return client || sys.deviceType || "API Client"
+}
+
 export default function LogsPage() {
   const token = useSelector((state) => state.auth?.token)
   const user = useSelector((state) => state.auth?.user)
@@ -247,10 +276,11 @@ export default function LogsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Timestamp</TableHead>
+                <TableHead>Time</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Level</TableHead>
                 <TableHead>Action &amp; Route</TableHead>
+                <TableHead>Location &amp; System</TableHead>
                 <TableHead>Actor</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Details</TableHead>
@@ -260,57 +290,67 @@ export default function LogsPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={idx}>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <Skeleton className="h-8 w-full" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : logs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-28 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="h-28 text-center text-sm text-muted-foreground">
                     No matching log entries found.
                   </TableCell>
                 </TableRow>
               ) : (
-                logs.map((entry) => (
-                  <TableRow key={entry._id}>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {formatDate(entry.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={CATEGORY_BADGE_MAP[entry.category] || ""}>
-                        {entry.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={LEVEL_BADGE_MAP[entry.level] || ""}>
-                        {entry.level}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-xs">
-                      <div className="truncate font-mono text-xs font-medium">{entry.action}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {entry.method ? `${entry.method} ` : ""}
-                        {entry.path || entry.message}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      <div className="font-medium">{entry.actor?.displayName || entry.actor?.email || "Guest"}</div>
-                      <div className="text-muted-foreground uppercase text-[10px]">{entry.actor?.role || "guest"}</div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{entry.statusCode ?? "—"}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Inspect log ${entry.action || entry._id}`}
-                        onClick={() => setSelectedLog(entry)}
-                      >
-                        <Eye className="size-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                logs.map((entry) => {
+                  const timeMeta = formatLogTime(entry)
+                  return (
+                    <TableRow key={entry._id}>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        <div className="font-medium text-foreground">{timeMeta.date}</div>
+                        <div className="font-mono text-[10px]">{timeMeta.time}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={CATEGORY_BADGE_MAP[entry.category] || ""}>
+                          {entry.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={LEVEL_BADGE_MAP[entry.level] || ""}>
+                          {entry.level}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        <div className="truncate font-mono text-xs font-medium">{entry.action}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {entry.method ? `${entry.method} ` : ""}
+                          {entry.path || entry.message}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <div className="font-medium">{formatLogLocation(entry)}</div>
+                        <div className="truncate text-[10px] text-muted-foreground">
+                          {formatSystemSummary(entry)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <div className="font-medium">{entry.actor?.displayName || entry.actor?.email || "Guest"}</div>
+                        <div className="text-muted-foreground uppercase text-[10px]">{entry.actor?.role || "guest"}</div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{entry.statusCode ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Inspect log ${entry.action || entry._id}`}
+                          onClick={() => setSelectedLog(entry)}
+                        >
+                          <Eye className="size-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -356,7 +396,16 @@ export default function LogsPage() {
           </DialogHeader>
           {selectedLog && (
             <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3 rounded-lg border p-3">
+              <div className="grid grid-cols-1 gap-3 rounded-lg border p-3 sm:grid-cols-2">
+                <div>
+                  <span className="text-muted-foreground">Exact Timestamp (UTC):</span>{" "}
+                  <strong className="font-mono">{selectedLog.occurredAt || selectedLog.createdAt || "N/A"}</strong>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Location:</span>{" "}
+                  <strong>{formatLogLocation(selectedLog)}</strong>
+                  {selectedLog.location?.timezone ? ` (${selectedLog.location.timezone})` : ""}
+                </div>
                 <div>
                   <span className="text-muted-foreground">Actor:</span>{" "}
                   <strong>{selectedLog.actor?.email || selectedLog.actor?.role || "guest"}</strong>
@@ -366,12 +415,36 @@ export default function LogsPage() {
                   <strong className="font-mono">{selectedLog.ip || "N/A"}</strong>
                 </div>
                 <div>
+                  <span className="text-muted-foreground">Client System:</span>{" "}
+                  <strong>
+                    {[selectedLog.systemConfig?.os, selectedLog.systemConfig?.browser, selectedLog.systemConfig?.deviceType]
+                      .filter(Boolean)
+                      .join(" / ") || "Unknown"}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Server Config:</span>{" "}
+                  <strong className="font-mono">
+                    {[selectedLog.systemConfig?.nodeVersion, selectedLog.systemConfig?.platform, selectedLog.systemConfig?.serverRegion, selectedLog.systemConfig?.environment]
+                      .filter(Boolean)
+                      .join(" · ") || "N/A"}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Request ID:</span>{" "}
+                  <strong className="font-mono">{selectedLog.systemConfig?.requestId || "N/A"}</strong>
+                </div>
+                <div>
                   <span className="text-muted-foreground">Duration:</span>{" "}
                   <strong>{selectedLog.durationMs != null ? `${selectedLog.durationMs}ms` : "N/A"}</strong>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Error Name:</span>{" "}
                   <strong>{selectedLog.errorName || "None"}</strong>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Location Source:</span>{" "}
+                  <strong className="font-mono">{selectedLog.location?.source || "unavailable"}</strong>
                 </div>
               </div>
               {selectedLog.message && (

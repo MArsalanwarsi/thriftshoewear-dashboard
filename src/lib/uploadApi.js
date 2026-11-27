@@ -1,23 +1,19 @@
-import { API_BASE_URL } from "./api"
+import { API_BASE_URL, getActiveCsrfToken, purgeLegacyAuthStorage } from "./api"
 
 /**
- * Retrieve the active authentication token from localStorage
+ * Retrieve the active in-memory session CSRF token (never read credentials from browser storage).
  */
 export function getAuthToken() {
-  if (typeof window === "undefined") return ""
-  return localStorage.getItem("dashboardToken") || ""
+  return ""
 }
 
 /**
  * Handle 401 unauthorized session expiry
  */
 function handleAuthExpiry() {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("dashboardToken")
-    localStorage.removeItem("dashboardUser")
-    if (window.location.pathname !== "/login") {
-      window.location.href = "/login"
-    }
+  purgeLegacyAuthStorage()
+  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+    window.location.href = "/login"
   }
 }
 
@@ -57,10 +53,11 @@ export function uploadSingle(file, onProgressOrOptions, extraOptions = {}) {
     const xhr = new XMLHttpRequest()
     const url = `${API_BASE_URL}/upload/single`
     xhr.open("POST", url, true)
+    xhr.withCredentials = true
 
-    const token = getAuthToken()
-    if (token) {
-      xhr.setRequestHeader("Authorization", `Bearer ${token}`)
+    const csrf = getActiveCsrfToken()
+    if (csrf) {
+      xhr.setRequestHeader("X-CSRF-Token", csrf)
     }
     xhr.setRequestHeader("Accept", "application/json")
 

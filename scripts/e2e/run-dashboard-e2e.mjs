@@ -139,6 +139,7 @@ async function mountDashboardApiMocks(target, activeUser, featureStateRef) {
   const fakeLogs = [
     {
       _id: "log_001",
+      occurredAt: "2026-11-27T07:30:00.000Z",
       category: "error",
       level: "error",
       action: "ERR_POST_ORDERS",
@@ -148,6 +149,23 @@ async function mountDashboardApiMocks(target, activeUser, featureStateRef) {
       durationMs: 42,
       actor: { email: "buyer@thrift.com", role: "customer", displayName: "Buyer" },
       ip: "127.0.0.1",
+      location: {
+        country: "PK",
+        region: "Punjab",
+        city: "Lahore",
+        timezone: "Asia/Karachi",
+        source: "vercel-edge",
+      },
+      systemConfig: {
+        requestId: "req-e2e-001",
+        browser: "Chrome",
+        os: "Windows",
+        deviceType: "desktop",
+        nodeVersion: "v24.0.0",
+        platform: "linux",
+        environment: "production",
+        serverRegion: "sin1",
+      },
       message: "Simulated payment gateway timeout",
       errorName: "GatewayError",
       stack: "Error: Simulated payment gateway timeout\n at orderController.js:44",
@@ -310,10 +328,6 @@ async function runAllRoutesSmokeSuite(browser, featureStateRef) {
   const superUser = { _id: "sa1", role: "superAdmin", email: "root@thrift.com", firstName: "Root", displayName: "Root Admin" }
 
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-  await ctx.addInitScript((user) => {
-    window.localStorage.setItem("dashboardToken", "super-jwt")
-    window.localStorage.setItem("dashboardUser", JSON.stringify(user))
-  }, superUser)
   await mountDashboardApiMocks(ctx, superUser, featureStateRef)
 
   const page = await ctx.newPage()
@@ -398,10 +412,6 @@ async function runResponsiveSuite(browser, featureStateRef) {
   const superUser = { _id: "sa1", role: "superAdmin", email: "root@thrift.com", firstName: "Root" }
 
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-  await ctx.addInitScript((user) => {
-    window.localStorage.setItem("dashboardToken", "super-jwt")
-    window.localStorage.setItem("dashboardUser", JSON.stringify(user))
-  }, superUser)
   await mountDashboardApiMocks(ctx, superUser, featureStateRef)
   const page = await ctx.newPage()
   const failures = []
@@ -484,10 +494,6 @@ async function runInteractiveSuite(browser, featureStateRef) {
   // 2. Regular Admin isolation
   const adminUser = { _id: "a1", role: "admin", email: "admin@thrift.com", firstName: "Staff" }
   const adminCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-  await adminCtx.addInitScript((user) => {
-    window.localStorage.setItem("dashboardToken", "admin-jwt")
-    window.localStorage.setItem("dashboardUser", JSON.stringify(user))
-  }, adminUser)
   const adminPage = await adminCtx.newPage()
   adminPage.on("pageerror", (err) => runtimeErrors.push(err.message))
   await mountDashboardApiMocks(adminCtx, adminUser, featureStateRef)
@@ -499,19 +505,17 @@ async function runInteractiveSuite(browser, featureStateRef) {
   await adminCtx.close()
   console.log("PASS  Regular admin blocked from Super Admin links and /features")
 
-  // 3. Super Admin Logs, Features Password Lock & Overview CLS/ARIA
+  // 3. Super Admin Logs, Features Password Lock, Zero Browser PII & Overview CLS/ARIA
   const superUser = { _id: "sa1", role: "superAdmin", email: "root@thrift.com", firstName: "Root" }
   const superCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-  await superCtx.addInitScript((user) => {
-    window.localStorage.setItem("dashboardToken", "super-jwt")
-    window.localStorage.setItem("dashboardUser", JSON.stringify(user))
+  await superCtx.addInitScript(() => {
     window.__clsTotal = 0
     new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (!entry.hadRecentInput) window.__clsTotal += entry.value
       }
     }).observe({ type: "layout-shift", buffered: true })
-  }, superUser)
+  })
   const superPage = await superCtx.newPage()
   superPage.on("pageerror", (err) => runtimeErrors.push(err.message))
   await mountDashboardApiMocks(superCtx, superUser, featureStateRef)
@@ -537,15 +541,27 @@ async function runInteractiveSuite(browser, featureStateRef) {
   await superPage.goto(`${BASE_URL}/logs`, { waitUntil: "networkidle" })
   await superPage.waitForTimeout(500)
   const logsText = await superPage.locator("body").innerText()
-  if (!logsText.includes("ERR_POST_ORDERS")) {
-    throw new Error(`Expected ERR_POST_ORDERS on /logs (url=${superPage.url()}). Page text:\n${logsText.slice(0, 600)}`)
+  if (!logsText.includes("ERR_POST_ORDERS") || !logsText.includes("Lahore")) {
+    throw new Error(`Expected ERR_POST_ORDERS and location on /logs (url=${superPage.url()}). Page text:\n${logsText.slice(0, 600)}`)
   }
   await superPage.getByText("ERR_POST_ORDERS").waitFor()
   await superPage.locator("tbody tr").first().getByRole("button").click()
   await superPage.getByText("Simulated payment gateway timeout", { exact: true }).waitFor()
+  await superPage.getByText("req-e2e-001").waitFor()
   await superPage.getByText("[REDACTED]").waitFor()
   await superPage.keyboard.press("Escape")
-  console.log("PASS  Super Admin /logs displays audit summary, events, and redacted stack trace")
+
+  const browserStorageLeak = await superPage.evaluate(() => ({
+    lsKeys: Object.keys(window.localStorage),
+    ssKeys: Object.keys(window.sessionStorage),
+  }))
+  if (
+    browserStorageLeak.lsKeys.some((k) => /token|user|email|secret|password/i.test(k)) ||
+    browserStorageLeak.ssKeys.some((k) => /token|user|order|email|secret|password/i.test(k))
+  ) {
+    throw new Error(`Sensitive keys detected in browser storage: ${JSON.stringify(browserStorageLeak)}`)
+  }
+  console.log("PASS  Super Admin /logs displays time, location, system config, and zero sensitive browser storage")
 
   await superPage.getByRole("link", { name: "Feature Controls" }).click()
   await superPage.waitForURL("**/features")

@@ -22,11 +22,23 @@ describe("Dashboard Security Hardening Regression Suite", () => {
     assert.equal(encodeSegment("abc/../../admin?x=1"), "abc%2F..%2F..%2Fadmin%3Fx%3D1")
   })
 
-  it("RequireAuth fails closed while user profile is unresolved and clears cached PII on logout", () => {
+  it("RequireAuth fails closed while user profile is unresolved and zero sensitive data persists in browser storage", () => {
     const layoutSrc = fs.readFileSync(path.join(root, "src/app/(dashboard)/layout.jsx"), "utf8")
     const providersSrc = fs.readFileSync(path.join(root, "src/app/providers.jsx"), "utf8")
+    const authSliceSrc = fs.readFileSync(path.join(root, "src/store/authSlice.js"), "utf8")
+    const apiSrc = fs.readFileSync(path.join(root, "src/lib/api.js"), "utf8")
+    const uploadApiSrc = fs.readFileSync(path.join(root, "src/lib/uploadApi.js"), "utf8")
+    const swSrc = fs.readFileSync(path.join(root, "src/app/sw.js"), "utf8")
+
     assert.match(layoutSrc, /if\s*\(!user\)\s*return\s*<PageLoader\s*\/>/)
-    assert.match(providersSrc, /window\.addEventListener\("storage"/)
+    assert.match(providersSrc, /BroadcastChannel/)
+    assert.match(providersSrc, /fetchMe\(\)/)
+    assert.equal(/setItem\(["']dashboardToken/.test(authSliceSrc), false)
+    assert.equal(/setItem\(["']dashboardUser/.test(authSliceSrc), false)
+    assert.match(apiSrc, /credentials:\s*"include"/)
+    assert.match(uploadApiSrc, /withCredentials\s*=\s*true/)
+    assert.match(swSrc, /NetworkOnly/)
+    assert.match(swSrc, /\/logs/)
 
     const adminSliceSrc = fs.readFileSync(path.join(root, "src/store/adminSlice.js"), "utf8")
     assert.match(adminSliceSrc, /\.addCase\(logout,/)

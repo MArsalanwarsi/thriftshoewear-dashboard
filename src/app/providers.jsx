@@ -11,26 +11,35 @@ import { Toaster } from "@/components/ui/sonner"
 
 function AuthBootstrap({ children }) {
   const dispatch = useDispatch()
-  const token = useSelector((state) => state.auth.token)
 
   useEffect(() => {
     dispatch(hydrateAuth())
+    dispatch(fetchMe())
   }, [dispatch])
 
   useEffect(() => {
-    if (token) {
-      dispatch(fetchMe())
-    }
-  }, [dispatch, token])
+    if (typeof window === "undefined") return undefined
 
-  useEffect(() => {
+    let channel = null
+    if (typeof BroadcastChannel !== "undefined") {
+      channel = new BroadcastChannel("tsw-dashboard-auth")
+      channel.onmessage = (event) => {
+        if (event?.data?.type === "logout") {
+          dispatch(logout())
+        }
+      }
+    }
+
     const handleStorage = (event) => {
       if (event.key === "dashboardToken" && !event.newValue) {
         dispatch(logout())
       }
     }
     window.addEventListener("storage", handleStorage)
-    return () => window.removeEventListener("storage", handleStorage)
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+      channel?.close()
+    }
   }, [dispatch])
 
   return children

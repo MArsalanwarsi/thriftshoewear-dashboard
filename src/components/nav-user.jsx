@@ -30,7 +30,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { logout } from "@/store/authSlice"
+import { logout, logoutRemote } from "@/store/authSlice"
 
 export function NavUser({ user: propUser }) {
   const { isMobile } = useSidebar()
@@ -46,7 +46,7 @@ export function NavUser({ user: propUser }) {
     user?.name ||
     "Staff Member"
 
-  const email = user?.email || "staff@thriftshoewear.com"
+  const email = user?.email || "Authenticated Staff"
   const role = user?.role || "admin"
   const avatarUrl =
     typeof user?.avatar === "string"
@@ -62,15 +62,12 @@ export function NavUser({ user: propUser }) {
       .slice(0, 2)
       .toUpperCase() || "AD"
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
       dispatch(logout())
+      await dispatch(logoutRemote())
     } catch {
       // In case redux dispatch is unavailable
-    }
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("dashboardToken")
-      window.localStorage.removeItem("dashboardUser")
     }
     router.push("/login")
   }
