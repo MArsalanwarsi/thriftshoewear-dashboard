@@ -1,4 +1,4 @@
-import { API_BASE_URL, getActiveCsrfToken, purgeLegacyAuthStorage } from "./api"
+import { getActiveCsrfToken, getClientApiBaseUrl, purgeLegacyAuthStorage } from "./api"
 
 /**
  * Retrieve the active in-memory session CSRF token (never read credentials from browser storage).
@@ -51,7 +51,7 @@ export function uploadSingle(file, onProgressOrOptions, extraOptions = {}) {
     }
 
     const xhr = new XMLHttpRequest()
-    const url = `${API_BASE_URL}/upload/single`
+    const url = `${getClientApiBaseUrl()}/upload/single`
     xhr.open("POST", url, true)
     xhr.withCredentials = true
 
@@ -152,12 +152,13 @@ export function uploadMultiple(files, onProgressOrOptions, extraOptions = {}) {
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    const url = `${API_BASE_URL}/upload/multiple`
+    const url = `${getClientApiBaseUrl()}/upload/multiple`
     xhr.open("POST", url, true)
+    xhr.withCredentials = true
 
-    const token = getAuthToken()
-    if (token) {
-      xhr.setRequestHeader("Authorization", `Bearer ${token}`)
+    const csrf = getActiveCsrfToken()
+    if (csrf) {
+      xhr.setRequestHeader("X-CSRF-Token", csrf)
     }
     xhr.setRequestHeader("Accept", "application/json")
 
@@ -234,14 +235,13 @@ export async function fetchMedia({
   if (format && String(format).trim()) query.set("format", String(format).trim().toLowerCase())
   if (folder && folder !== "all" && String(folder).trim()) query.set("folder", String(folder).trim())
 
-  const token = getAuthToken()
-  const url = `${API_BASE_URL}/upload/media?${query.toString()}`
+  const url = `${getClientApiBaseUrl()}/upload/media?${query.toString()}`
 
   const response = await fetch(url, {
     method: "GET",
+    credentials: "include",
     headers: {
       Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
 
@@ -284,16 +284,17 @@ export async function deleteMedia(keyOrUrl) {
     throw new Error("A media key or URL is required for deletion")
   }
 
-  const token = getAuthToken()
+  const csrf = getActiveCsrfToken()
   const cleanKey = String(keyOrUrl).trim()
   const isUrl = cleanKey.startsWith("http://") || cleanKey.startsWith("https://")
 
-  const response = await fetch(`${API_BASE_URL}/upload`, {
+  const response = await fetch(`${getClientApiBaseUrl()}/upload`, {
     method: "DELETE",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
     },
     body: JSON.stringify(isUrl ? { url: cleanKey } : { key: cleanKey }),
   })
@@ -329,15 +330,14 @@ export async function deleteMedia(keyOrUrl) {
  * @returns {Promise<{ success: boolean, data: Object }>}
  */
 export async function fetchStorageStats({ sync = false } = {}) {
-  const token = getAuthToken()
   const query = sync ? "?sync=true" : ""
-  const url = `${API_BASE_URL}/upload/storage-stats${query}`
+  const url = `${getClientApiBaseUrl()}/upload/storage-stats${query}`
 
   const response = await fetch(url, {
     method: "GET",
+    credentials: "include",
     headers: {
       Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
 

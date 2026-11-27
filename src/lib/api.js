@@ -2,6 +2,13 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   "https://thriftshoewear-backend.vercel.app/api/v1"
 
+export function getClientApiBaseUrl() {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/api/v1`
+  }
+  return API_BASE_URL
+}
+
 const AUTH_CHANNEL_NAME = "tsw-dashboard-auth"
 let inMemoryCsrfToken = ""
 
@@ -80,7 +87,7 @@ export async function apiRequest(path, options = {}) {
     throw offlineErr
   }
 
-  const url = new URL(`${API_BASE_URL}${path}`)
+  const url = new URL(`${getClientApiBaseUrl()}${path}`)
   appendQuery(url, params)
 
   const headers = {
