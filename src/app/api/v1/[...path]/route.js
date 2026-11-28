@@ -1,3 +1,5 @@
+import crypto from "crypto"
+
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
   "keep-alive",
@@ -22,17 +24,75 @@ const FORWARD_REQUEST_HEADERS = [
   "x-auth-transport",
   "x-request-id",
   "user-agent",
-  "x-forwarded-for",
-  "x-real-ip",
-  "x-vercel-ip-country",
-  "x-vercel-ip-country-region",
-  "x-vercel-ip-city",
-  "x-vercel-ip-timezone",
-  "x-vercel-ip-latitude",
-  "x-vercel-ip-longitude",
-  "cf-connecting-ip",
-  "cf-ipcountry",
 ]
+
+function firstForwardedIp(raw) {
+  if (!raw || typeof raw !== "string") return ""
+  return raw.split(",")[0].trim()
+}
+
+function attachClientTelemetryHeaders(incomingHeaders, outgoingHeaders) {
+  const clientIp =
+    incomingHeaders.get("cf-connecting-ip") ||
+    incomingHeaders.get("true-client-ip") ||
+    incomingHeaders.get("x-real-ip") ||
+    firstForwardedIp(incomingHeaders.get("x-forwarded-for"))
+
+  const country =
+    incomingHeaders.get("x-vercel-ip-country") ||
+    incomingHeaders.get("cf-ipcountry") ||
+    incomingHeaders.get("x-country-code") ||
+    ""
+  const region =
+    incomingHeaders.get("x-vercel-ip-country-region") ||
+    incomingHeaders.get("cf-region") ||
+    incomingHeaders.get("x-region") ||
+    ""
+  const city =
+    incomingHeaders.get("x-vercel-ip-city") ||
+    incomingHeaders.get("cf-ipcity") ||
+    incomingHeaders.get("x-city") ||
+    ""
+  const timezone =
+    incomingHeaders.get("x-vercel-ip-timezone") ||
+    incomingHeaders.get("cf-timezone") ||
+    incomingHeaders.get("x-timezone") ||
+    ""
+  const latitude =
+    incomingHeaders.get("x-vercel-ip-latitude") ||
+    incomingHeaders.get("cf-iplatitude") ||
+    ""
+  const longitude =
+    incomingHeaders.get("x-vercel-ip-longitude") ||
+    incomingHeaders.get("cf-iplongitude") ||
+    ""
+
+  const geoSource =
+    incomingHeaders.get("x-vercel-ip-country") || incomingHeaders.get("x-vercel-ip-city")
+      ? "vercel-edge"
+      : incomingHeaders.get("cf-ipcountry") || incomingHeaders.get("cf-connecting-ip")
+        ? "cloudflare"
+        : country || region || city
+          ? "proxy-header"
+          : ""
+
+  outgoingHeaders.set("x-tsw-forwarded-by", "thriftshoewear-bff")
+  if (clientIp) outgoingHeaders.set("x-tsw-client-ip", clientIp)
+  if (country) outgoingHeaders.set("x-tsw-client-country", country)
+  if (region) outgoingHeaders.set("x-tsw-client-region", region)
+  if (city) outgoingHeaders.set("x-tsw-client-city", city)
+  if (timezone) outgoingHeaders.set("x-tsw-client-timezone", timezone)
+  if (latitude) outgoingHeaders.set("x-tsw-client-latitude", latitude)
+  if (longitude) outgoingHeaders.set("x-tsw-client-longitude", longitude)
+  if (geoSource) outgoingHeaders.set("x-tsw-client-geo-source", geoSource)
+
+  const secret = process.env.PROXY_TELEMETRY_SECRET
+  if (secret && String(secret).trim()) {
+    const payload = [clientIp || "", country, region, city, timezone, latitude, longitude].join("|")
+    const sig = crypto.createHmac("sha256", String(secret).trim()).update(payload).digest("hex")
+    outgoingHeaders.set("x-tsw-client-sig", sig)
+  }
+}
 
 function resolveBackendBaseUrl(requestOrigin) {
   const configured =
@@ -96,6 +156,7 @@ async function handleProxy(req, context) {
     const val = req.headers.get(name)
     if (val) headers.set(name, val)
   }
+  attachClientTelemetryHeaders(req.headers, headers)
 
   const clientOrigin = req.headers.get("origin") || incomingUrl.origin
   if (clientOrigin) headers.set("origin", clientOrigin)

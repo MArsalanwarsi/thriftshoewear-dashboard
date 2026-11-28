@@ -92,6 +92,13 @@ test("Same-origin BFF proxy forwards cookies and rewrites Set-Cookie to first-pa
         "content-type": "application/json",
         cookie: "tsw_auth=prior",
         "x-auth-transport": "cookie",
+        "x-real-ip": "39.42.100.12",
+        "x-vercel-ip-country": "PK",
+        "x-vercel-ip-country-region": "SD",
+        "x-vercel-ip-city": "Karachi",
+        "x-vercel-ip-timezone": "Asia/Karachi",
+        // Ensure spoofed client header is never trusted blindly
+        "x-tsw-client-country": "SPOOF",
       },
       body: JSON.stringify({ email: "root@thrift.com", password: "pw" }),
     })
@@ -99,6 +106,12 @@ test("Same-origin BFF proxy forwards cookies and rewrites Set-Cookie to first-pa
     const res = await proxyPost(req, { params: Promise.resolve({ path: ["auth", "login"] }) })
     assert.equal(res.status, 200)
     assert.equal(upstreamHeaders.get("cookie"), "tsw_auth=prior")
+    assert.equal(upstreamHeaders.get("x-tsw-forwarded-by"), "thriftshoewear-bff")
+    assert.equal(upstreamHeaders.get("x-tsw-client-ip"), "39.42.100.12")
+    assert.equal(upstreamHeaders.get("x-tsw-client-country"), "PK")
+    assert.equal(upstreamHeaders.get("x-tsw-client-region"), "SD")
+    assert.equal(upstreamHeaders.get("x-tsw-client-city"), "Karachi")
+    assert.equal(upstreamHeaders.get("x-tsw-client-timezone"), "Asia/Karachi")
     assert.equal(res.headers.get("content-encoding"), null)
     const setCookies = res.headers.getSetCookie()
     assert.equal(setCookies.length, 2)
