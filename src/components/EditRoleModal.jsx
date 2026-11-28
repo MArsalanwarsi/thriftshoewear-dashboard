@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ModuleSelectorGrid } from "@/components/AssignModulesModal"
 
 export function EditRoleModal({
   user,
@@ -29,6 +30,9 @@ export function EditRoleModal({
   isSuperAdmin = false,
 }) {
   const [role, setRole] = React.useState(user?.role || "customer")
+  const [assignedModules, setAssignedModules] = React.useState(
+    Array.isArray(user?.assignedModules) ? user.assignedModules : null
+  )
 
   if (!user) return null
 
@@ -37,12 +41,15 @@ export function EditRoleModal({
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onConfirm(role)
+    onConfirm({
+      role,
+      assignedModules: role === "admin" ? assignedModules : null,
+    })
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -78,6 +85,18 @@ export function EditRoleModal({
                 </SelectContent>
               </Select>
             </div>
+
+            {role === "admin" && (
+              <div className="space-y-2">
+                <Label>Assigned Dashboard Modules</Label>
+                <ModuleSelectorGrid
+                  value={assignedModules}
+                  onChange={setAssignedModules}
+                  disabled={loading || !isSuperAdmin}
+                  compact
+                />
+              </div>
+            )}
 
             {role === "superAdmin" && (
               <div className="flex items-start gap-2 rounded-md bg-purple-50 dark:bg-purple-950/40 p-3 text-xs text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800">

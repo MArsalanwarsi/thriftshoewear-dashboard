@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Copy,
   Eye,
+  Layers,
   MoreHorizontal,
   Power,
   RefreshCw,
@@ -67,7 +68,10 @@ import { AccessStatusBadge, RoleBadge } from "@/components/UserBadges"
 import { ApproveAccessModal } from "@/components/ApproveAccessModal"
 import { RejectAccessModal } from "@/components/RejectAccessModal"
 import { EditRoleModal } from "@/components/EditRoleModal"
+import { AssignModulesModal } from "@/components/AssignModulesModal"
 import { UserDetailModal } from "@/components/UserDetailModal"
+import { formatModuleSummary } from "@/config/modules"
+import { Badge } from "@/components/ui/badge"
 
 export default function UsersPage() {
   const token = useSelector((state) => state.auth?.token)
@@ -91,6 +95,7 @@ export default function UsersPage() {
   // Modals & Action Target
   const [detailUser, setDetailUser] = React.useState(null)
   const [roleUser, setRoleUser] = React.useState(null)
+  const [modulesUser, setModulesUser] = React.useState(null)
   const [approveUser, setApproveUser] = React.useState(null)
   const [rejectUser, setRejectUser] = React.useState(null)
   const [permanentDeleteUser, setPermanentDeleteUser] = React.useState(null)
@@ -156,14 +161,18 @@ export default function UsersPage() {
   }, [fetchUsers])
 
   // Quick action: Approve dashboard access
-  const handleApproveConfirm = async ({ role, reviewNotes }) => {
+  const handleApproveConfirm = async ({ role, reviewNotes, assignedModules }) => {
     if (!approveUser) return
     setActionLoading(true)
     try {
       await apiRequest(`/users/${approveUser._id}/approve-dashboard-access`, {
         method: "PATCH",
         token,
-        body: { role, reviewNotes },
+        body: {
+          role,
+          reviewNotes,
+          ...(role === "admin" && assignedModules !== undefined ? { assignedModules } : {}),
+        },
       })
       toast.success(`Dashboard access approved for ${approveUser.displayName || approveUser.email}`)
       setApproveUser(null)
@@ -196,20 +205,45 @@ export default function UsersPage() {
   }
 
   // Quick action: Change role
-  const handleRoleConfirm = async (newRole) => {
+  const handleRoleConfirm = async ({ role: newRole, assignedModules }) => {
     if (!roleUser) return
     setActionLoading(true)
     try {
       await apiRequest(`/users/${roleUser._id}`, {
         method: "PATCH",
         token,
-        body: { role: newRole },
+        body: {
+          role: newRole,
+          assignedModules: newRole === "admin" ? assignedModules : null,
+        },
       })
       toast.success(`Role updated to ${newRole} for ${roleUser.displayName || roleUser.email}`)
       setRoleUser(null)
       fetchUsers()
     } catch (err) {
       toast.error(err.message || "Failed to update user role")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Quick action: Assign modules to an admin
+  const handleAssignModulesConfirm = async (assignedModules) => {
+    if (!modulesUser) return
+    setActionLoading(true)
+    try {
+      await apiRequest(`/users/${modulesUser._id}`, {
+        method: "PATCH",
+        token,
+        body: { assignedModules },
+      })
+      toast.success(
+        `Updated module permissions for ${modulesUser.displayName || modulesUser.email}`
+      )
+      setModulesUser(null)
+      fetchUsers()
+    } catch (err) {
+      toast.error(err.message || "Failed to assign modules")
     } finally {
       setActionLoading(false)
     }
@@ -452,6 +486,7 @@ export default function UsersPage() {
               <TableHead className="w-[280px]">User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Modules</TableHead>
               <TableHead>Dashboard Access</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
@@ -474,6 +509,7 @@ export default function UsersPage() {
                   <TableCell><Skeleton className="h-4 w-36" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
@@ -481,7 +517,7 @@ export default function UsersPage() {
               ))
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Users className="size-8 text-muted-foreground/60" />
                     <p className="text-sm font-medium">No users match your criteria</p>
@@ -561,6 +597,28 @@ export default function UsersPage() {
                     </TableCell>
 
                     <TableCell>
+                      {user.role === "admin" ? (
+                        <div className="flex items-center gap-1.5">
+                          <Badge
+                            variant="outline"
+                            className="text-[11px] font-mono"
+                            title={
+                              Array.isArray(user.assignedModules)
+                                ? user.assignedModules.join(", ") || "None"
+                                : "All Operations Modules"
+                            }
+                          >
+                            {formatModuleSummary(user)}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {formatModuleSummary(user)}
+                        </span>
+                      )}
+                    </TableCell>
+
+                    <TableCell>
                       <AccessStatusBadge status={user.dashboardAccess?.status} />
                     </TableCell>
 
@@ -617,6 +675,12 @@ export default function UsersPage() {
                           >
                             <Shield className="mr-2 size-4" /> Change Role
                           </DropdownMenuItem>
+
+                          {isSuperAdmin && user.role === "admin" && !user.isDeleted && (
+                            <DropdownMenuItem onClick={() => setModulesUser(user)}>
+                              <Layers className="mr-2 size-4" /> Assign Modules
+                            </DropdownMenuItem>
+                          )}
 
                           <DropdownMenuSeparator />
 
@@ -722,6 +786,16 @@ export default function UsersPage() {
         open={Boolean(roleUser)}
         onOpenChange={(open) => !open && setRoleUser(null)}
         onConfirm={handleRoleConfirm}
+        loading={actionLoading}
+        isSuperAdmin={isSuperAdmin}
+      />
+
+      <AssignModulesModal
+        key={`modules-${modulesUser?._id || "none"}`}
+        user={modulesUser}
+        open={Boolean(modulesUser)}
+        onOpenChange={(open) => !open && setModulesUser(null)}
+        onConfirm={handleAssignModulesConfirm}
         loading={actionLoading}
         isSuperAdmin={isSuperAdmin}
       />

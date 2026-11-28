@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { ModuleSelectorGrid } from "@/components/AssignModulesModal"
 
 export function ApproveAccessModal({
   user,
@@ -31,6 +32,7 @@ export function ApproveAccessModal({
 }) {
   const [role, setRole] = React.useState("admin")
   const [reviewNotes, setReviewNotes] = React.useState("")
+  const [assignedModules, setAssignedModules] = React.useState(null)
 
   if (!user) return null
 
@@ -39,12 +41,16 @@ export function ApproveAccessModal({
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onConfirm({ role, reviewNotes })
+    onConfirm({
+      role,
+      reviewNotes,
+      assignedModules: role === "admin" ? assignedModules : null,
+    })
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -91,6 +97,18 @@ export function ApproveAccessModal({
                 </SelectContent>
               </Select>
             </div>
+
+            {role === "admin" && (
+              <div className="space-y-2">
+                <Label>Assigned Dashboard Modules</Label>
+                <ModuleSelectorGrid
+                  value={assignedModules}
+                  onChange={setAssignedModules}
+                  disabled={loading || !isSuperAdmin}
+                  compact
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="approve-notes">Review Notes / Remarks (Optional)</Label>

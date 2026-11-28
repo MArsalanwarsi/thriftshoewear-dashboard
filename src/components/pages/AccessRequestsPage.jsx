@@ -131,14 +131,18 @@ export default function AccessRequestsPage() {
   }, [fetchRequests])
 
   // Action: Approve
-  const handleApproveConfirm = async ({ role, reviewNotes }) => {
+  const handleApproveConfirm = async ({ role, reviewNotes, assignedModules }) => {
     if (!approveUser) return
     setActionLoading(true)
     try {
       await apiRequest(`/users/${approveUser._id}/approve-dashboard-access`, {
         method: "PATCH",
         token,
-        body: { role, reviewNotes },
+        body: {
+          role,
+          reviewNotes,
+          ...(role === "admin" && assignedModules !== undefined ? { assignedModules } : {}),
+        },
       })
       toast.success(`Dashboard access approved for ${approveUser.displayName || approveUser.email}`)
       setApproveUser(null)

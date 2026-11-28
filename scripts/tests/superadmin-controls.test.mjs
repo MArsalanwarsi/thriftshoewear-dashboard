@@ -4,6 +4,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { FEATURE_CATALOG } from "../../src/components/pages/FeaturesPage.jsx"
+import { ADMIN_MODULES, getModuleForPathname, hasModuleAccess } from "../../src/config/modules.js"
 
 const projectRoot = fileURLToPath(new URL("../..", import.meta.url))
 
@@ -89,4 +90,27 @@ test("Dashboard UI contracts: bespoke favicon, Redux light/dark button, sale tog
   assert.match(imgUp, /fetchMediaUsage/)
   assert.match(galleryUp, /fetchMediaUsage/)
   assert.match(uploadApi, /\/upload\/usage/)
+})
+
+test("Super Admin module assignment & product deletion impact confirmation contracts", () => {
+  assert.ok(ADMIN_MODULES.some((m) => m.key === "products"))
+  assert.ok(ADMIN_MODULES.some((m) => m.key === "orders"))
+  assert.equal(getModuleForPathname("/products/new"), "products")
+  assert.equal(getModuleForPathname("/orders/123"), "orders")
+  assert.equal(getModuleForPathname("/features"), null)
+
+  const restrictedAdmin = { role: "admin", assignedModules: ["products", "categories"] }
+  assert.equal(hasModuleAccess(restrictedAdmin, "products"), true)
+  assert.equal(hasModuleAccess(restrictedAdmin, "orders"), false)
+  assert.equal(hasModuleAccess({ role: "admin", assignedModules: null }, "orders"), true)
+  assert.equal(hasModuleAccess({ role: "superAdmin", assignedModules: [] }, "orders"), true)
+
+  const usersSrc = fs.readFileSync(path.join(projectRoot, "src/components/pages/UsersPage.jsx"), "utf8")
+  const productsSrc = fs.readFileSync(path.join(projectRoot, "src/components/pages/ProductsPage.jsx"), "utf8")
+  assert.match(usersSrc, /AssignModulesModal/)
+  assert.match(usersSrc, /Assign Modules/)
+  assert.match(productsSrc, /deletion-impact/)
+  assert.match(productsSrc, /deleteUnusedImages/)
+  assert.match(productsSrc, /Confirm Archive/)
+  assert.match(productsSrc, /Confirm Permanent Delete/)
 })

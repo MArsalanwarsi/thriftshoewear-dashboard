@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Image as ImageIcon,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -104,6 +105,10 @@ export default function ProductsPage() {
 
   // Confirmation dialog state
   const [deleteTarget, setDeleteTarget] = React.useState(null)
+  const [deleteImpact, setDeleteImpact] = React.useState(null)
+  const [impactLoading, setImpactLoading] = React.useState(false)
+  const [deleteUnusedImages, setDeleteUnusedImages] = React.useState(false)
+  const [permanentDelete, setPermanentDelete] = React.useState(false)
   const [actionPending, setActionPending] = React.useState(false)
 
   // Debounce search input
@@ -210,17 +215,54 @@ export default function ProductsPage() {
     }
   }
 
-  // Soft Delete Product
+  const closeDeleteConfirm = () => {
+    setDeleteTarget(null)
+    setDeleteImpact(null)
+    setImpactLoading(false)
+    setDeleteUnusedImages(false)
+    setPermanentDelete(false)
+  }
+
+  const openDeleteConfirm = async (product, { defaultPermanent = false } = {}) => {
+    setDeleteTarget(product)
+    setDeleteImpact(null)
+    setDeleteUnusedImages(false)
+    setPermanentDelete(defaultPermanent)
+    setImpactLoading(true)
+    try {
+      const res = await apiRequest(`/products/${product._id}/deletion-impact`, { token })
+      setDeleteImpact(res.data || null)
+    } catch {
+      setDeleteImpact(null)
+    } finally {
+      setImpactLoading(false)
+    }
+  }
+
+  // Archive or Permanently Delete Product (with optional unused R2 image cleanup)
   const handleDeleteProduct = async () => {
     if (!deleteTarget) return
     setActionPending(true)
     try {
-      await apiRequest(`/products/${deleteTarget._id}`, {
+      const res = await apiRequest(`/products/${deleteTarget._id}`, {
         method: "DELETE",
         token,
+        params: {
+          deleteUnusedImages: deleteUnusedImages ? "true" : undefined,
+          permanent: permanentDelete ? "true" : undefined,
+        },
       })
-      toast.success(`Product "${deleteTarget.name}" archived successfully`)
-      setDeleteTarget(null)
+      const deletedImgs = res.data?.deletedImagesCount || 0
+      const skippedImgs = res.data?.skippedSharedImagesCount || 0
+      const baseMsg = permanentDelete
+        ? `Product "${deleteTarget.name}" permanently deleted`
+        : `Product "${deleteTarget.name}" archived`
+      const imgNote =
+        deleteUnusedImages && (deletedImgs > 0 || skippedImgs > 0)
+          ? ` (${deletedImgs} unused R2 image${deletedImgs === 1 ? "" : "s"} deleted${skippedImgs > 0 ? `, ${skippedImgs} shared image${skippedImgs === 1 ? "" : "s"} kept` : ""})`
+          : ""
+      toast.success(`${baseMsg}${imgNote}`)
+      closeDeleteConfirm()
       fetchProducts(true)
     } catch (err) {
       toast.error(err.message || "Failed to delete product")
@@ -580,14 +622,23 @@ export default function ProductsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {isArchived ? (
-                              <DropdownMenuItem onClick={() => handleRestoreProduct(product)}>
-                                <RotateCcw className="mr-2 size-4 text-emerald-600" />
-                                Restore Listing
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onClick={() => handleRestoreProduct(product)}>
+                                  <RotateCcw className="mr-2 size-4 text-emerald-600" />
+                                  Restore Listing
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => openDeleteConfirm(product, { defaultPermanent: true })}
+                                >
+                                  <Trash2 className="mr-2 size-4" />
+                                  Delete Permanently
+                                </DropdownMenuItem>
+                              </>
                             ) : (
                               <DropdownMenuItem
                                 variant="destructive"
-                                onClick={() => setDeleteTarget(product)}
+                                onClick={() => openDeleteConfirm(product)}
                               >
                                 <Trash2 className="mr-2 size-4" />
                                 Archive / Delete
@@ -635,24 +686,113 @@ export default function ProductsPage() {
       </Card>
 
       {/* Delete / Archive Confirmation Alert Dialog */}
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !actionPending) closeDeleteConfirm()
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive Product</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to archive <strong>{deleteTarget?.name}</strong>?
-              This will remove the product from the public storefront and mark its status as archived. You can restore it anytime.
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="size-5" />
+              {permanentDelete ? "Permanently Delete Product?" : "Archive or Delete Product?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 rounded-lg border bg-muted/40 p-2.5">
+                  {deleteTarget?.images?.[0]?.url ? (
+                    <img
+                      src={deleteTarget.images[0].url}
+                      alt={deleteTarget?.name || "Product"}
+                      className="size-12 rounded-md object-cover border shrink-0"
+                    />
+                  ) : (
+                    <div className="size-12 rounded-md border bg-muted flex items-center justify-center shrink-0">
+                      <ImageIcon className="size-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm text-foreground truncate">
+                      {deleteTarget?.name}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Please confirm before removing this product{deleteTarget?.images?.length ? " and review its attached images" : ""}.
+                    </div>
+                  </div>
+                </div>
+
+                {impactLoading ? (
+                  <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2.5">
+                    <Loader2 className="size-3.5 animate-spin text-primary shrink-0" />
+                    <span>Checking attached product images and R2 references...</span>
+                  </div>
+                ) : deleteImpact ? (
+                  <div className="rounded-md border bg-muted/30 p-2.5 space-y-1 text-foreground">
+                    <div className="font-medium">
+                      Attached Images: {deleteImpact.imageCount} total
+                    </div>
+                    {deleteImpact.imageCount > 0 && (
+                      <div className="text-[11px] text-muted-foreground">
+                        {deleteImpact.exclusiveCount} used only by this product ·{" "}
+                        {deleteImpact.sharedCount} shared with other products/categories (protected)
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className="space-y-2 pt-1">
+                  <label className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/30">
+                    <input
+                      type="checkbox"
+                      checked={deleteUnusedImages}
+                      onChange={(e) => setDeleteUnusedImages(e.target.checked)}
+                      disabled={actionPending || (deleteImpact && deleteImpact.exclusiveCount === 0)}
+                      className="mt-0.5 size-4 accent-primary rounded border-input cursor-pointer shrink-0"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="font-medium text-foreground block">
+                        Also permanently delete unused product images from Cloudflare R2
+                      </span>
+                      <span className="text-[11px] text-muted-foreground block">
+                        Only images exclusive to this product are deleted; shared images are automatically kept.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 rounded-md border border-destructive/30 p-2.5 cursor-pointer hover:bg-destructive/5">
+                    <input
+                      type="checkbox"
+                      checked={permanentDelete}
+                      onChange={(e) => setPermanentDelete(e.target.checked)}
+                      disabled={actionPending}
+                      className="mt-0.5 size-4 accent-destructive rounded border-input cursor-pointer shrink-0"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="font-medium text-destructive block">
+                        Permanently delete product record instead of archiving
+                      </span>
+                      <span className="text-[11px] text-muted-foreground block">
+                        Archived products can be restored anytime; permanent deletion cannot be undone.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={actionPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteProduct}
-              disabled={actionPending}
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteProduct()
+              }}
+              disabled={actionPending || impactLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {actionPending && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Archive Product
+              {permanentDelete ? "Confirm Permanent Delete" : "Confirm Archive"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
