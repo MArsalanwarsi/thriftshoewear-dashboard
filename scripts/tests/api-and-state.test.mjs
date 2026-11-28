@@ -118,6 +118,14 @@ test("Same-origin BFF proxy forwards cookies and rewrites Set-Cookie to first-pa
     assert.match(setCookies[0], /HttpOnly/i)
     assert.match(setCookies[0], /SameSite=Lax/i)
     assert.match(setCookies[0], /Secure/i)
+
+    const localReq = new Request("http://127.0.0.1:3145/api/v1/site/features", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://127.0.0.1:3145" },
+      body: JSON.stringify({}),
+    })
+    await proxyPost(localReq, { params: Promise.resolve({ path: ["site", "features"] }) })
+    assert.equal(upstreamHeaders.get("origin"), null)
   } finally {
     globalThis.fetch = originalFetch
   }

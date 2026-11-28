@@ -31,6 +31,10 @@ function firstForwardedIp(raw) {
   return raw.split(",")[0].trim()
 }
 
+function isLoopbackOrigin(origin) {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(String(origin || "").trim())
+}
+
 function attachClientTelemetryHeaders(incomingHeaders, outgoingHeaders) {
   const clientIp =
     incomingHeaders.get("cf-connecting-ip") ||
@@ -158,8 +162,12 @@ async function handleProxy(req, context) {
   }
   attachClientTelemetryHeaders(req.headers, headers)
 
-  const clientOrigin = req.headers.get("origin") || incomingUrl.origin
-  if (clientOrigin) headers.set("origin", clientOrigin)
+  const requestOrigin = req.headers.get("origin")
+  if (requestOrigin && !(isLoopbackOrigin(requestOrigin) && requestOrigin === incomingUrl.origin)) {
+    headers.set("origin", requestOrigin)
+  } else if (!isLoopbackOrigin(incomingUrl.origin)) {
+    headers.set("origin", incomingUrl.origin)
+  }
 
   let body
   if (!["GET", "HEAD"].includes(req.method.toUpperCase())) {
